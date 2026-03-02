@@ -11,7 +11,7 @@ from tudatpy.estimation import estimation_analysis
 from tudatpy.dynamics import parameters_setup
 from tudatpy.numerical_simulation import estimation_setup
 from tudatpy.estimation.observable_models_setup import links
-
+from tudatpy import util
 from tudatpy.interface import spice
 
 import ObsFunc
@@ -479,57 +479,52 @@ def Create_Estimation_Output(settings,system_of_bodies,propagator_settings,pseud
 
     convergence_settings = estimation_analysis.estimation_convergence_checker(maximum_iterations=5)
 
-    #CREATE INVERESE A PRIORI COVARIANCE
+    
+    ############################################################################################################
+    #CREATE INVERSE A PRIORI COVARIANCE
     ############################################################################################################
     inverse_apriori_cov = []
     if settings['est']['a_priori_covariance'] == True:
         # Get parameter indices
         n_params = parameters_to_estimate.parameter_set_size
-
-        #Parameter identifies IAU (pole/lib are not working yet 
+        # Parameter identifies IAU (pole/lib are not working yet 
         parameter_identifies = parameters_to_estimate.get_parameter_identifiers()
-
         pole_pos_identifier = parameter_identifies[0]
         pole_lib_identifier = parameter_identifies[1]
-        # Create a priori covariance with very large (weak) default
-        apriori_cov = np.eye(n_params) * (5e6)**2  # 5k km uncertainty 
-
+        
+        # Create inverse a priori covariance with zeros (no constraint by default)
+        inverse_apriori_cov = np.zeros((n_params, n_params))
+        
         # Get indices for pole position and librations (rotation model parameters)
         if settings['est']['a_priori_pole'] == True:
             pole_indices = parameters_to_estimate.indices_for_parameter_type(pole_pos_identifier)
-            #Apply constraints to pole position
-            #Example: uncertainty in pole right ascension and declination
+            # Apply constraints to pole position
+            # Example: uncertainty in pole right ascension and declination
             for idx_range in pole_indices:
                 for i in range(idx_range[0], idx_range[0]+idx_range[1]):
-                    apriori_cov[i, i] = (5 * np.pi/180)**2  # 5 degree uncertainty in radians
-
+                    inverse_apriori_cov[i, i] = 1 / (5 * np.pi/180)**2  # Inverse of 5 degree uncertainty
+        
         if settings['est']['a_priori_lib'] == True:
             libration_indices = parameters_to_estimate.indices_for_parameter_type(pole_lib_identifier)
             
             if settings['est']['a_priori_lib_deg'] == 1:
                 # Apply constraints to libration amplitudes
-                # Conservative uncertainties: [alpha_1, delta_1, alpha_2, delta_2]
-                libration_sigmas = [0.003, 0.002] #, 2e-5, 1e-5]  # rad
-
+                # Conservative uncertainties: [alpha_1, delta_1]
+                libration_sigmas = [0.003, 0.002]
                 libration_sigmas[0] = np.abs(0.01*3)  # alpha_1 ~300% of 0.011 rad 
                 libration_sigmas[1] = np.abs(0.01*3)  # delta_1 ~300% of 0.008 rad 
-            if settings['est']['a_priori_lib_deg'] == 2:
                 
-                libration_sigmas = [0.003, 0.002, 2e-5, 1e-5]  # rad
+            if settings['est']['a_priori_lib_deg'] == 2:
+                libration_sigmas = [0.003, 0.002, 2e-5, 1e-5]
                 libration_sigmas[0] = np.abs(0.01*3)  # alpha_1 ~300% of 0.011 rad 
                 libration_sigmas[1] = np.abs(0.01*3)  # delta_1 ~300% of 0.008 rad 
                 libration_sigmas[2] = np.abs(4.2e-5*1)   # alpha_2 ~100% of 4.2e-5 rad
                 libration_sigmas[3] = np.abs(4.2e-5*1)   # delta_2 ~100% of 1.5e-5 rad 
-
+            
             for idx_range in libration_indices:
                 for j, i in enumerate(range(idx_range[0], idx_range[0]+idx_range[1])):
                     param_idx = j % 2  # Cycles through 0,1,2,3 if multiple sets
-                    apriori_cov[i, i] = libration_sigmas[param_idx]**2
-                # Triton position indices remain at 1e20 (no constraint)
-
-        # Invert for Tudat
-        inverse_apriori_cov = np.linalg.inv(apriori_cov)
-
+                    inverse_apriori_cov[i, i] = 1 / libration_sigmas[param_idx]**2        
     ############################################################################################################
     # Create input object for the estimation
     estimation_input = estimation_analysis.EstimationInput(
@@ -547,10 +542,20 @@ def Create_Estimation_Output(settings,system_of_bodies,propagator_settings,pseud
 
 
     estimation_output = estimator.perform_estimation(estimation_input)
-
-
-
-    return estimation_output, original_parameter_vector, parameters_desc
+    state_history = estimation_output.simulation_results_per_iteration[-1].dynamics_results.state_history_float
+    state_history_array = util.result2array(state_history)
+    epochs = state_history_array[:,0] 
+    #Compute covariances
+    propagated_covariances = []
+    if settings['obs']['use_weights'] == True:
+        propagated_covariances = estimation_analysis.propagate_covariance_from_analysis_objects(
+            estimation_output,
+            estimator.state_transition_interface,
+            epochs
+        )
+        propagated_covariances = np.array(list(propagated_covariances.values()))
+    
+    return estimation_output, original_parameter_vector, parameters_desc,propagated_covariances
 
 
 

@@ -77,15 +77,34 @@ def RunSinglePropagation(settings: dict, out_dir,folder_name=None):
     propagator_settings = PropFuncs.Create_Propagator_Settings(settings["prop"],acceleration_models)
 
     ##############################################################################################
-    # CREATE & RUN ESTIMATOR  
+    # CREATE ESTIMATION PARAMETERS SETTINGS  
     ##############################################################################################
     
     # Create initial state variation equation
-    parameter_settings = parameters_setup.initial_states(propagator_settings, system_of_bodies)
+    parameters_to_estimate_settings = parameters_setup.initial_states(propagator_settings, system_of_bodies)
+
+    #Only use with IAU rotational model
+    if 'iau_rotation_model_pole' in settings['est']["est_parameters"]:
+        parameters_to_estimate_settings.append(parameters_setup.iau_rotation_model_pole('Neptune'))
+    if 'iau_rotation_model_pole_rate' in settings['est']['est_parameters']:
+        parameters_to_estimate_settings.append(parameters_setup.iau_rotation_model_pole_rate('Neptune'))
+    if 'iau_rotation_model_pole_librations' in settings['est']['est_parameters']:
+        if settings['env']['Neptune_rot_model_type'] == 'Pole_Model_Jacobson2009':
+            w_n_1 = np.deg2rad(52.3836218446110/36525/24/3600)
+            w_n_2 = 2*np.deg2rad(52.3836218446110/36525/24/3600)
+            if 'pole_librations_deg1' in settings['est']['est_parameters']:
+                parameters_to_estimate_settings.append(parameters_setup.iau_rotation_model_pole_librations('Neptune',[w_n_1]))
+            elif 'pole_librations_deg2' in settings['est']['est_parameters']:
+                parameters_to_estimate_settings.append(parameters_setup.iau_rotation_model_pole_librations('Neptune',[w_n_1,w_n_2]))
+        elif settings['env']['Neptune_rot_model_type'] == 'IAU2015':
+            w_n_i = np.deg2rad(52.316/36525/24/3600)
+            parameters_to_estimate_settings.append(parameters_setup.iau_rotation_model_pole_librations('Neptune',[w_n_i]))
+    
+
 
 
     # Create the parameters that will be estimated
-    parameters_to_estimate = parameters_setup.create_parameter_set(parameter_settings, system_of_bodies)
+    parameters_to_estimate = parameters_setup.create_parameter_set(parameters_to_estimate_settings, system_of_bodies)
 
     print("################################################################################")
     print("START OF SIMULATION")
@@ -132,15 +151,15 @@ def RunSinglePropagation(settings: dict, out_dir,folder_name=None):
             initial_covariance,
             state_transition_interface,
             output_times)
-    # Propagate formal errors over the course of the orbit
-    propagated_formal_errors = estimation_analysis.propagate_formal_errors_split_output(
-        initial_covariance=initial_covariance,
-        state_transition_interface=state_transition_interface,
-        output_times=output_times)
+    # # Propagate formal errors over the course of the orbit
+    # propagated_formal_errors = estimation_analysis.propagate_formal_errors_split_output(
+    #     initial_covariance=initial_covariance,
+    #     state_transition_interface=state_transition_interface,
+    #     output_times=output_times)
    
     # Split tuple into epochs and formal errors
-    epochs = np.array(propagated_formal_errors[0])
-    formal_errors1 = np.array(propagated_formal_errors[1])
+    #epochs = np.array(propagated_formal_errors[0])
+    #formal_errors1 = np.array(propagated_formal_errors[1])
     covariances = np.array(propagated_covariances[1])
 
 
@@ -157,18 +176,24 @@ def RunSinglePropagation(settings: dict, out_dir,folder_name=None):
     #np.save(out_dir / "delta_initial_state_array.npy", delta_initial_state_array)
     #np.save(out_dir / "state_transition_matrices.npy", state_transition_matrices)
     np.save(out_dir / "covariances_array.npy",covariances)
-    np.save(out_dir / "formal_errors_array.npy",formal_errors1)
+    #np.save(out_dir / "formal_errors_array.npy",formal_errors1)
 
     #Convert initial state to list to be able to save to yaml
-    settings["prop"]["initial_state"] = settings["prop"]["initial_state"].tolist()
-    settings['prop']['initial_covariance'] = settings['prop']['initial_covariance'].tolist()
+    settings_copy = settings.copy()
+    settings_copy["prop"]["initial_state"] = settings_copy["prop"]["initial_state"].tolist()
+    settings_copy['prop']['initial_covariance'] = settings_copy['prop']['initial_covariance'].tolist()
     #settings["prop"]["initial_state_uncertanity"] = settings["prop"]["initial_state_uncertanity"].tolist()
-    
+    settings_copy['obs'].pop('weights', None)
+
+    if 'initial_Pole_Pos' in settings_copy['env']:
+        settings_copy['env']['initial_Pole_Pos'] = settings_copy['env']['initial_Pole_Pos'].tolist()
+    if 'initial_Pole_lib_deg1' in settings_copy['env']:
+        settings_copy['env']['initial_Pole_lib_deg1'] = settings_copy['env']['initial_Pole_lib_deg1'].tolist()
     #Save yaml settings file
     with open(out_dir / "settings.yaml", "w", encoding="utf-8") as f:
-        yaml.safe_dump(settings, f, sort_keys=False, allow_unicode=True)
+        yaml.safe_dump(settings_copy, f, sort_keys=False, allow_unicode=True)
     
-    return state_history_array,formal_errors1
+    return state_history_array,covariances
 
 
 if __name__ == "__main__":

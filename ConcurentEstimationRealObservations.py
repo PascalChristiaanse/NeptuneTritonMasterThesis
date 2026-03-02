@@ -46,6 +46,9 @@ from pathlib import Path
 # Add parent directory to Python path
 #sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+
+import Analysis_All_Estimations_and_Data as UncertantyPropUtils
+
 # Get the path to the directory containing this file
 current_dir = Path(__file__).resolve().parent
 
@@ -60,6 +63,7 @@ import nsdc
 import ObservationImplementation
 #import RunMultipleEstimations
 import MainPostprocessing as PostProc
+import EstimationAnalysisTemplates as EstimationTemplates
 
 matplotlib.use("PDF")  #tkagg
 
@@ -142,7 +146,7 @@ settings_obs["type"] = "Real" # Simulated or Real observations
 
 #TEST FILE CHANGE
 # file_names_loaded = [
-#         'Triton_874_nm0013.csv',
+#         #'Triton_874_nm0013.csv',
 #         'Triton_689_nm0007.csv',
 #         'Triton_337_nm0085.csv',
 #         'Triton_337_nm0015.csv',
@@ -152,12 +156,12 @@ settings_obs["type"] = "Real" # Simulated or Real observations
 settings_obs["files"] = file_names_loaded             
 settings_obs["observations_folder_path"] = "Observations/AllModernECLIPJ2000"  #RelativeObservations AllModernECLIPJ2000 AllModernJ2000
 
-weights = weights.reset_index()
+# weights = weights.reset_index()
 
 settings_obs["use_weights"] = True
-settings_obs["ra_dec_independent_weights"] = False
-settings_obs["timeframe_weights"] = False
-settings_obs["weights"] = weights
+# settings_obs["ra_dec_independent_weights"] = False
+# settings_obs["timeframe_weights"] = False
+# settings_obs["weights"] = weights
 
 settings_obs["use_loaded_obs"] = False
 
@@ -166,13 +170,13 @@ settings_obs["epoch_filter_dict"] = None
 
 
 #Make sure all other weight types are off
-settings_obs['std_weights'] = False
-settings_obs["per_night_weights"] = False
-settings_obs["per_night_weights_id"] = False 
-settings_obs['per_night_weights_hybrid'] = False
+# settings_obs['std_weights'] = False
+# settings_obs["per_night_weights"] = False
+# settings_obs["per_night_weights_id"] = False 
+# settings_obs['per_night_weights_hybrid'] = False
 
 
-settings_obs['use_old_obs_func'] = False
+# settings_obs['use_old_obs_func'] = False
 
 
 
@@ -183,7 +187,6 @@ settings_obs['use_old_obs_func'] = False
 settings_est = dict()
 #settings_est['pseudo_observations_settings'] = pseudo_observations_settings
 #settings_est['pseudo_observations'] = pseudo_observations
-
 
 settings_est['est_parameters'] = ['initial_state'] #,'iau_rotation_model_pole','iau_rotation_model_pole_rate'] 
     #Possible settings: 
@@ -219,11 +222,52 @@ def make_timestamped_folder(base_path="Results"):
 
 
 # ObservationImplementation.main(settings,make_timestamped_folder("Results/EstimatedParametersSimulatedObservations/Test"))
+    
+print("#######################################################################################################")
+print("LOAD KERNELS")
+print("#######################################################################################################")
+#Load kernels
+kernel_folder = "Kernels/"
+kernel_paths=[
+    "pck00010.tpc",
+    "gm_de440.tpc",
+    "nep097.bsp",     
+    #"nep105.bsp",
+    "naif0012.tls"
+    ]
+
+spice.load_standard_kernels()
+
+# Load your kernels
+for k in kernel_paths:
+    spice.load_kernel(os.path.join(kernel_folder, k))
+
+    
+
+out_dir = make_timestamped_folder("Results/EstimationTemplatesTest")
+
+#VARIANTS = EstimationTemplates.CASE1_Manual_Bias(settings,out_dir)
+
+
+VARIANTS = EstimationTemplates.WeightSchemeAnalysis(settings,out_dir,runSim=False)
+
+
+  # Load simulations
+simulations = {
+    name: PostProc.load_npy_files(cfg["simulation_path"])
+    for name, cfg in VARIANTS.items()
+}
 
 
 
 
-runSimulationsBetter = True
+# for name, cfg in VARIANTS.items():
+#     simulations[name]["est_parameters"] = cfg["est_parameters"]
+
+
+
+
+runSimulationsBetter = False
 if runSimulationsBetter == True:
     # Define all variants for CASE 1
     VARIANTS = {
@@ -332,62 +376,560 @@ if runSimulationsBetter == True:
     }
 
 
+    # Weight Estimation Loop (iterative weight refinement)
+    VARIANTS = {
+        "Initial_State_No_Weights": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/Initial_State_No_Weights",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015'
+        },
+        "initial_state_hybrid_weights_0": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/initial_state_hybrid_weights_0",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015'
+        },
+        "initial_state_hybrid_weights_1": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/initial_state_hybrid_weights_1",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015'
+        },
+        "initial_state_hybrid_weights_2": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/initial_state_hybrid_weights_2",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015'
+        },
+        "initial_state_hybrid_weights_3": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/initial_state_hybrid_weights_3",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015'
+        },
+        "initial_state_hybrid_weights_4": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/initial_state_hybrid_weights_4",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015'
+        },
+    }
+    
 
-    # # Define all variants for 
+    # Pole pos and Pole lib estimation (no weights, no cov), (hybrid weights and cov)
+    VARIANTS = {
+        "initial_state_hybrid_weights_4": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/initial_state_hybrid_weights_4",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "no_weights_no_cov_pole_pos": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/no_weights_no_cov_pole_pos",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "no_weights_no_cov_pole_lib": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/no_weights_no_cov_pole_lib",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "no_weights_no_cov_pole_pos_lib": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/no_weights_no_cov_pole_pos_lib",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "hybrid_weights_pole_pos_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_pos_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True 
+        },
+        "hybrid_weights_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "hybrid_weights_pole_pos_cov_pole_lib": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_pos_cov_pole_lib",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True, 
+            'pole_lib_cov': False,
+        },
+        "hybrid_weights_pole_pos_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_pos_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "hybrid_weights_pole_pos_cov_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_pos_cov_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'a_priori_pole': True, 
+            'pole_lib_cov': True,
+        },
+    }
+
+    
+    # Pole pos and Pole lib estimation hybrid weights, initial state from simulated obs
     # VARIANTS = {
-    #     # #Pole IAU2015
-    #     # #---------------------------------------------------------------------------------------------------------------------------------------
-    #     "initial_state_only": {
-    #         "simulation_path": "Results/PoleEstimationRealObservations/CASE2/Initial_State_No_Weights",
+    #     "no_weights_initial_state": {
+    #         "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/no_weights_initial_state",
+    #         'est_parameters': ['initial_state'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "hybrid_weights_initial_state": {
+    #         "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_initial_state",
+    #         'est_parameters': ['initial_state'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': True,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "hybrid_weights_pole_pos_cov": {
+    #         "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_pos_cov",
+    #         'est_parameters': ['initial_state','iau_rotation_model_pole'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': True,
+    #         'use_apriori_cov': True,
+    #         'pole_pos_cov': True 
+    #     },
+    #     "hybrid_weights_pole_lib_cov": {
+    #         "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_lib_cov",
+    #         'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': True,
+    #         'use_apriori_cov': True,
+    #         'pole_pos_cov': False, 
+    #         'pole_lib_cov': True,
+    #     },
+    #     "hybrid_weights_pole_pos_cov_pole_lib": {
+    #         "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_pos_cov_pole_lib",
+    #         'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': True,
+    #         'use_apriori_cov': True,
+    #         'pole_pos_cov': True, 
+    #         'pole_lib_cov': False,
+    #     },
+    #     "hybrid_weights_pole_pos_pole_lib_cov": {
+    #         "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_pos_pole_lib_cov",
+    #         'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': True,
+    #         'use_apriori_cov': True,
+    #         'pole_pos_cov': False, 
+    #         'pole_lib_cov': True,
+    #     },
+    #     "hybrid_weights_pole_pos_cov_pole_lib_cov": {
+    #         "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_pos_cov_pole_lib_cov",
+    #         'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': True,
+    #         'use_apriori_cov': True,
+    #         'a_priori_pole': True, 
+    #         'pole_lib_cov': True,
+    #     },
+    # }
+
+    
+    # ULTIMATE ANALYSIS
+    VARIANTS = {
+        "IAUPole_initial_state": {
+            "simulation_path": "Results/PoleEstimationRealObservations/EstimationWeightLoop/initial_state_hybrid_weights_4",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': False,
+        },
+        "IAUPole_pole_pos_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_pos_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True 
+        },
+        "IAUPole_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "IAUPole_pole_pos_cov_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleInitCASE2/hybrid_weights_pole_pos_cov_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'a_priori_pole': True, 
+            'pole_lib_cov': True,
+        },
+        "SimPole_initial_state": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_initial_state",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': False,
+        },
+        "SimPole_pole_pos_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_pos_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True 
+        },
+        "SimPole_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "SimPole_pole_pos_cov_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/PoleSimPoleCASE2/hybrid_weights_pole_pos_cov_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'a_priori_pole': True, 
+            'pole_lib_cov': True,
+        },
+    }
+
+
+  # ULTIMATE ANALYSIS 
+    VARIANTS = {
+        "IAUPole_initial_state_no_weights": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_initial_state_no_weights",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "IAUPole_initial_state": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_initial_state",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': False,
+        },
+        "IAUPole_pole_pos_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_pole_pos_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True 
+        },
+        "IAUPole_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "IAUPole_pole_pos_cov_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_pole_pos_cov_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'a_priori_pole': True, 
+            'pole_lib_cov': True,
+        },
+        "SimPole_initial_state_no_weights": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/SimPole_initial_state_no_weights",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "SimPole_initial_state": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/SimPole_initial_state",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': False,
+        },
+        "SimPole_pole_pos_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/SimPole_pole_pos_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True 
+        },
+        "SimPole_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/SimPole_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "SimPole_pole_pos_cov_pole_lib_cov": {
+            "simulation_path": "Results/PoleEstimationRealObservations/UltimateCASE1/SimPole_pole_pos_cov_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'a_priori_pole': True, 
+            'pole_lib_cov': True,
+        },
+    }
+
+  # ULTIMATE ANALYSIS with manual bias
+    VARIANTS = {
+        "IAUPole_initial_state_no_weights": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_initial_state_no_weights",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "IAUPole_initial_state": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_initial_state",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': False,
+        },
+        "IAUPole_pole_pos_cov": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_pole_pos_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True 
+        },
+        "IAUPole_pole_lib_cov": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "IAUPole_pole_pos_cov_pole_lib_cov": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_pole_pos_cov_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'a_priori_pole': True, 
+            'pole_lib_cov': True,
+        },
+        "SimPole_initial_state_no_weights": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_initial_state_no_weights",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "SimPole_initial_state": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_initial_state",
+            'est_parameters': ['initial_state'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': False,
+        },
+        "SimPole_pole_pos_cov": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_pole_pos_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': True 
+        },
+        "SimPole_pole_lib_cov": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'pole_pos_cov': False, 
+            'pole_lib_cov': True,
+        },
+        "SimPole_pole_pos_cov_pole_lib_cov": {
+            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_pole_pos_cov_pole_lib_cov",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': True,
+            'use_apriori_cov': True,
+            'a_priori_pole': True, 
+            'pole_lib_cov': True,
+        },
+    }
+
+
+    # #SIMULATED OBSERVATIONS
+    # VARIANTS = {
+    #     "initial_state_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/initial_state_IAU",
+    #         'est_parameters': ['initial_state'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "initial_state_Jacobson": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/initial_state_Jacobson",
     #         'est_parameters': ['initial_state'],
     #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
-    #     }, 
-    #     "initial_state_hybrid_weights": {
-    #         "simulation_path": "Results/PoleEstimationRealObservations/CASE2/initial_state_hybrid_weights",
-    #         'est_parameters': ['initial_state'],
-    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009'
-    #     }, 
-    #     "pole_lib_deg_1_hybrid_weights": {
-    #         "simulation_path": "Results/PoleEstimationRealObservations/CASE2/pole_lib_deg_1_hybrid_weights",
-    #         'est_parameters': ['initial_state'],
-    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009'
-    #     }, 
-    #     "pole_lib_deg_2_hybrid_weights": {
-    #         "simulation_path": "Results/PoleEstimationRealObservations/CASE2/pole_lib_deg_2_hybrid_weights",
-    #         'est_parameters': ['initial_state'],
-    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009'
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
     #     },
-    #     "pole_pos_hybrid_weights": {
-    #         "simulation_path": "Results/PoleEstimationRealObservations/CASE2/pole_pos_hybrid_weights",
-    #         'est_parameters': ['initial_state'],
-    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009'
-    #     }, 
-    #     "pole_pos_lib_deg_1_hybrid_weights": {
-    #         "simulation_path": "Results/PoleEstimationRealObservations/CASE2/pole_pos_lib_deg_1_hybrid_weights",
-    #         'est_parameters': ['initial_state'],
-    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009'
-    #     }
-                                                
+    #     "GM_Triton_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/GM_Triton_IAU",
+    #         'est_parameters': ['initial_state', 'GM_Triton'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "GM_Neptune_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/GM_Neptune_IAU",
+    #         'est_parameters': ['initial_state', 'GM_Neptune'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "GM_Both_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/GM_Both_IAU",
+    #         'est_parameters': ['initial_state', 'GM_Triton', 'GM_Neptune'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "sh_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/sh_IAU",
+    #         'est_parameters': ['initial_state', 'spherical_harmonics'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_pos_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_pos_IAU",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_rot_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_rot_IAU",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole_rate'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_pos_rot_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_pos_rot_IAU",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_lib_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_lib_IAU",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_full_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_full_IAU",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate', 'iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_pos_Jacobson": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_pos_Jacobson",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole'],
+    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_rot_Jacobson": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_rot_Jacobson",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole_rate'],
+    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_lib1_Jacobson": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_lib1_Jacobson",
+    #         'est_parameters': ['initial_state', 'pole_librations_deg2'],
+    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_lib2_Jacobson": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_lib2_Jacobson",
+    #         'est_parameters': ['initial_state', 'pole_librations_deg2'],
+    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "pole_full_Jacobson": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_full_Jacobson",
+    #         'est_parameters': ['initial_state', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate', 'pole_librations_deg2'],
+    #         'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "SH_pole_full_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/SH_pole_full_IAU",
+    #         'est_parameters': ['initial_state', 'spherical_harmonics', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate', 'iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "GM_SH_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/GM_SH_IAU",
+    #         'est_parameters': ['initial_state', 'GM_Neptune', 'GM_Triton', 'spherical_harmonics'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
+    #     "all_IAU": {
+    #         "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/all_IAU",
+    #         'est_parameters': ['initial_state', 'GM_Triton', 'GM_Neptune', 'spherical_harmonics', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate', 'iau_rotation_model_pole_librations'],
+    #         'Neptune_rot_model_type': 'IAU2015',
+    #         'use_weights': False,
+    #         'use_apriori_cov': False,
+    #     },
     # }
 
 
-
-    # # Define 
-    # VARIANTS = {
-    #     "initial_state_only": {
-    #         "simulation_path": "Results/PoleEstimationRealObservations/Loop/initial_state_only",
-    #         'est_parameters': ['initial_state'],
-    #         'Neptune_rot_model_type': ['Pole_Model_Jacobson2009'],
-    #         'max_estimations': 2,
-    #     }, 
-
-    # }
-
-
-    out_dir = make_timestamped_folder("Results/PoleEstimationRealObservations")
-    
-  
-    #-----------------#-----------------#-----------------#-----------------#-----------------#-----------------
+    #settings['obs']['type'] = 'Simulated'
     runSim = False
     if runSim == True:
         results = {}
@@ -400,128 +942,309 @@ if runSimulationsBetter == True:
             out_dir_current.mkdir(parents=True, exist_ok=True)
             
             settings_est['est_parameters'] = content['est_parameters'] 
-            #settings_obs["weights"] = weights
-
+            
             #Select different Pole Model or return to default
-            if 'Neptune_rot_model_type' in content.keys():
-                settings['env']['Neptune_rot_model_type'] = content['Neptune_rot_model_type']
-            else:
-                settings['env']['Neptune_rot_model_type'] ='IAU2015'
-            
+           
+            settings['env']['Neptune_rot_model_type'] = content['Neptune_rot_model_type']
+
             #Run estimation
-            if 'max_estimations' in content.keys():
-                for i in range(content['max_estimations']):
-                    
-                    out_dir_current_est = out_dir_current / str(i)
-                    out_dir_current_est.mkdir(parents=True,exist_ok=True)
-
-                    if i==0:
-                        settings['obs']["use_weights"] = False
-                        settings['obs']["timeframe_weights"] = False
-                        settings['obs']['ra_dec_independent_weights'] = False
-                        settings['obs']["residual_filtering"] = True
-                        #residuals_rejected_epochs_file = "Results/PoleEstimationRealObservations/LoopTest2/initial_state_only/0/residuals_rejected_epochs.json"
-                        # with open(residuals_rejected_epochs_file, 'r') as f:
-                        #     epochs_rejected = json.load(f)
-                        # settings_obs["epoch_filter_dict"] = epochs_rejected
+            ObservationImplementation.main(settings,out_dir_current)
 
 
-                        print("######################################")
-                        print("Running Sim ",name,i)
-                        print("######################################")
-            
-                    #Run estimation ~(30mins)
-                    estimation_output,observations = ObservationImplementation.main(settings,out_dir_current_est)
 
-                    #----------------------------------------------------------------------------------------------
-                    #After first estimation load the rejected epochs to use for next iterations
-                    if i==0:
-                        residuals_rejected_epochs_file = out_dir_current_est / "residuals_rejected_epochs.json"
-                        with open(residuals_rejected_epochs_file, 'r') as f:
-                            epochs_rejected = json.load(f)
-                        settings_obs["epoch_filter_dict"] = epochs_rejected
 
-                        #Turn off residual filtering for next iterations
-                        settings_obs["residual_filtering"] = False
-                    #----------------------------------------------------------------------------------------------
-                    #
-                    current_estimation_sim = PostProc.load_npy_files(out_dir_current_est)
-                    
-                    #Create weights
-                    summary = PostProc.main(file_names_loaded,out_dir_current_est)
-                    
-                    # Save current weights df just in case
-                    summary.to_csv(out_dir_current_est / "summary.txt", sep="\t", float_format="%.8e")
 
-                    settings['obs']["use_weights"] = True
-                    settings['obs']["timeframe_weights"] = True
-                    settings['obs']['ra_dec_independent_weights'] = True
-                    
-                    settings['obs']["weights"] = summary
+    #-----------------#-----------------#-----------------#-----------------#-----------------#-----------------
 
-                    # Set initial state of next iteration to the best solution of current estimation
-                    best_iteration = current_estimation_sim['best_iteration']
-                    settings['prop']['initial_state'] = current_estimation_sim['parameter_history'][:,best_iteration]
-                    #----------------------------------------------------------------------------------------------
+    #Load 
+    print("#######################################################################################################")
+    print("LOAD SIMPOLE MODEL") # LOAD OBSERVATIONS WITH WEIGHTS")
+    print("#######################################################################################################")
+    
+    
+    # # #Create Environment 
+    # body_settings,system_of_bodies = PropFuncs.Create_Env(settings['env'])
+
+    # #Load observations
+    # observations,observations_settings,observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
+    #         settings["obs"]["observations_folder_path"],
+    #         system_of_bodies,
+    #         settings['obs']["files"],
+    #         Residual_filtering = settings["obs"]["residual_filtering"])
+
+    #-------------------------
+    fitted_pole_pos_lib_sim = PostProc.load_npy_files("Results/EstimatedParametersSimulatedObservations/PoleLibrations/pole_pos_and_libration_amplitude")
+
+    settings['prop']['initial_state'] =  fitted_pole_pos_lib_sim['parameter_history'][0:6,-1]    
     
 
-    # Load simulations
-    simulations = {
-        name: PostProc.load_npy_files(cfg["simulation_path"])
-        for name, cfg in VARIANTS.items()
-    }
+    pole_params_SimPole = fitted_pole_pos_lib_sim['parameter_history'][6:,-1]
+    # runSim = False
+    # if runSim == True :
+    #     #Load observations with weights
+    #     print("#######################################################################################################")
+    #     print("RUN INITIAL ESTIMATION AND CREATE WEIGHTS SIM POLE") # LOAD OBSERVATIONS WITH WEIGHTS")
+    #     print("#######################################################################################################")
+        
+
+    #     settings['env']['initial_Pole_Pos'] = pole_params_SimPole[0:2]
+    #     settings['env']['initial_Pole_lib_deg1'] = pole_params_SimPole[2:4]
 
 
-    #Dict[Dict[]] where each specific sim has sub dicts for each iteration
-    #simulations = {}
-    # for name,cfg in VARIANTS.items():
-    #     if 'max_estimations' in cfg:
-    #         for i in cfg['max_estimations']:
+
+    #     out_dir_current = out_dir / 'SimPole_initial_state_no_weights'
+    #     out_dir_current.mkdir(parents=True, exist_ok=True)
+        
+    #     # Set estimation parameters
+    #     settings['est']['est_parameters'] = VARIANTS['SimPole_initial_state_no_weights']['est_parameters'] 
+        
+    #     #Set covariances if any
+        
+    #     # Set if to use a priori cov or not
+    #     settings['est']['a_priori_covariance'] = False #VARIANTS['SimPole_initial_state_no_weights']['use_apriori_cov']
+
+    #     settings['est']['a_priori_pole'] = False
+    #     settings['est']['a_priori_lib'] = False
+            
+
+    #     estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
+    #             settings,
+    #             out_dir_current)
+
+
+    #     #First estimation (initial_state only) without weights is used to generate weights
+
+    #     #simulation_weights_path = "Results/PoleEstimationRealObservations/UltimateCASE1/SimPole_initial_state_no_weights"
+    #     simulation = PostProc.load_npy_files(out_dir_current)
+
+    #     residuals = simulation['residual_history_arcseconds'][-1]
+
+    #     # Convert RA and DEC columns from arcseconds to radians
+    #     residuals[:, 1] = residuals[:, 1] / (3600 * 180 / np.pi)  # RA
+    #     residuals[:, 2] = residuals[:, 2] / (3600 * 180 / np.pi)  # DEC
+
+
+    #     # #Create Environment 
+    #     body_settings,system_of_bodies = PropFuncs.Create_Env(settings['env'])
+
+    #     #Load observations
+    #     observations,observations_settings,observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
+    #             settings["obs"]["observations_folder_path"],
+    #             system_of_bodies,
+    #             settings['obs']["files"],
+    #             Residual_filtering = settings["obs"]["residual_filtering"])
+
+
+
+    #     bias_dict = {
+    #     "689_nm0077": -0.2,  # arcsec
+    #     }
+
+    #     times_sec = observations.get_concatenated_observation_times()
+    #     residuals_old = observations.get_concatenated_residuals()
+
+    #     # observations and observations_biased are pointing in the same memory block
+    #     # therefore observations are overwritten !!
+    #     observations_biased, applied = ObsFunc.apply_dec_bias_to_observations(
+    #         observations,
+    #         observations_settings,
+    #         system_of_bodies,
+    #         bias_dict
+    #     )
+
+    #     residuals_new = observations_biased.get_concatenated_residuals()
+    #     fig = ObsFunc.PlotResidualBiased(times_sec,residuals_old,residuals_new)
+    #     fig.savefig(out_dir / "ManualBias_SimPole.pdf")
+
+
+
+    #     # EXTRACT RESIDUALS FROM INITIAL SIM 
+    #     # AND COMPUTE/ASSIGN WEIGHTS FROM THEM
+    #     observations_SimPole, weights_info_SimPole = ObsFunc.compute_and_assign_weights(
+    #         residuals=residuals,
+    #         observations=observations_biased,
+    #         gap_threshold_hours=4.0,
+    #         min_obs_per_frame=1,
+    #         weight_type = 'hybrid'
+    #     )
+
+
+
+    #     #Load observations with weights
+    #     print("#######################################################################################################")
+    #     print("RUN INITIAL ESTIMATION AND CREATE WEIGHTS IAU POLE") # LOAD OBSERVATIONS WITH WEIGHTS")
+    #     print("#######################################################################################################")
+        
+    #     out_dir_current = out_dir / 'IAUPole_initial_state_no_weights'
+    #     out_dir_current.mkdir(parents=True, exist_ok=True)
+        
+
+    #     settings['env'].pop('initial_Pole_Pos', None)
+    #     settings['env'].pop('initial_Pole_lib_deg1', None)
+    #     settings['prop'].pop('initial_state',None)
+
+    #     # # Set estimation parameters
+    #     settings['est']['est_parameters'] = VARIANTS['IAUPole_initial_state_no_weights']['est_parameters'] 
+        
+    #     # #Set covariances if any
+        
+    #     # # Set if to use a priori cov or not
+    #     settings['est']['a_priori_covariance'] = VARIANTS['IAUPole_initial_state_no_weights']['use_apriori_cov']
+
+    #     settings['est']['a_priori_pole'] = False
+    #     settings['est']['a_priori_lib'] = False
+            
+
+    #     estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
+    #             settings,
+    #             out_dir_current)
+
+
+
+
+    #     # #First estimation (initial_state only) without weights is used to generate weights
+    #     # out_dir_current
+    #     # # simulation_weights_path = "Results/PoleEstimationRealObservations/EstimationWeightLoop/Initial_State_No_Weights"
+    #     simulation = PostProc.load_npy_files(out_dir_current)
+
+    #     residuals = simulation['residual_history_arcseconds'][-1]
+
+    #     # # Convert RA and DEC columns from arcseconds to radians
+    #     residuals[:, 1] = residuals[:, 1] / (3600 * 180 / np.pi)  # RA
+    #     residuals[:, 2] = residuals[:, 2] / (3600 * 180 / np.pi)  # DEC
+
+
+    #     #--------------------------------------------------------------------------
+    #     # #Create Environment 
+    #     body_settings,system_of_bodies = PropFuncs.Create_Env(settings['env'])
+
+    #     #Load observations
+    #     observations,observations_settings,observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
+    #             settings["obs"]["observations_folder_path"],
+    #             system_of_bodies,
+    #             settings['obs']["files"],
+    #             Residual_filtering = settings["obs"]["residual_filtering"])
+
+
+
+    #     bias_dict = {
+    #     "689_nm0077": -0.2,  # arcsec
+    #     }
+
+    #     times_sec = observations.get_concatenated_observation_times()
+    #     residuals_old = observations.get_concatenated_residuals()
+
+    #     # observations and observations_biased are pointing in the same memory block
+    #     # therefore observations are overwritten !!
+    #     observations_biased, applied = ObsFunc.apply_dec_bias_to_observations(
+    #         observations,
+    #         observations_settings,
+    #         system_of_bodies,
+    #         bias_dict
+    #     )
+
+    #     residuals_new = observations_biased.get_concatenated_residuals()
+    #     fig = ObsFunc.PlotResidualBiased(times_sec,residuals_old,residuals_new)
+    #     fig.savefig(out_dir / "ManualBias_IAUPole.pdf")
+
+    #     #--------------------------------------------------------------------------
+    #     # EXTRACT RESIDUALS FROM INITIAL SIM 
+    #     # AND COMPUTE/ASSIGN WEIGHTS FROM THEM
+    #     observations_IAUPole, weights_info_IAUPole = ObsFunc.compute_and_assign_weights(
+    #         residuals=residuals,
+    #         observations=observations_biased,
+    #         gap_threshold_hours=4.0,
+    #         min_obs_per_frame=1,
+    #         weight_type = 'hybrid'
+    #     )
+
+
+    #     print("#######################################################################################################")
+    #     print("RUN SIMULATIONS")
+    #     print("#######################################################################################################")
+    
+
+    #     settings['env']['Neptune_rot_model_type'] ='IAU2015'
+
+
+    #     for name, content in VARIANTS.items():
+    #         if name != 'IAUPole_initial_state_no_weights' and name != 'SimPole_initial_state_no_weights':
+    #             print("######################################")
+    #             print("Running Sim ",name)
+    #             print("######################################")
                 
-    #simulations = {}
-
-    # from collections import defaultdict
-
-    # simulations = defaultdict(dict)
-    # simulations['initial_state_only']["0"] = PostProc.load_npy_files(
-    #     "Results/PoleEstimationRealObservations/TestCaseLoop/initial_state_only/0")
-
-    # summary = pd.read_csv(
-    #     "Results/PoleEstimationRealObservations/TestCaseLoop/initial_state_only/0/summary.txt", #
-    #     sep="\t",
-    #     index_col="id")
-
-    # summary = summary.reset_index()
-
-    # # simulations['initial_state_only']["0"] = PostProc.load_npy_files(
-    # #         "Results/PoleEstimationRealObservations/TestCaseLoop/initial_state_only")
+    #             out_dir_current = out_dir / name
+    #             out_dir_current.mkdir(parents=True, exist_ok=True)
+                
+    #             estimation_type = name.split('_')[0]
+    #             #Assign initial pole pos and lib based on estimation type
+    #             if estimation_type == 'IAUPole':
+    #                 settings['env'].pop('initial_Pole_Pos', None)
+    #                 settings['env'].pop('initial_Pole_lib_deg1', None)
+    #                 settings['prop'].pop('initial_state',None)
+    #             elif estimation_type == 'SimPole':
+    #                 settings['prop']['initial_state'] =  fitted_pole_pos_lib_sim['parameter_history'][0:6,-1]    
+    
+    #                 settings['env']['initial_Pole_Pos'] = pole_params_SimPole[0:2]
+    #                 settings['env']['initial_Pole_lib_deg1'] = pole_params_SimPole[2:4]
 
 
-    for name, cfg in VARIANTS.items():
-        simulations[name]["est_parameters"] = cfg["est_parameters"]
+
+    #             # Set estimation parameters
+    #             settings['est']['est_parameters'] = content['est_parameters'] 
+                
+    #             #Set covariances if any
+                
+    #             # Set if to use a priori cov or not
+    #             settings['est']['a_priori_covariance'] = content['use_apriori_cov']
+
+    #             if 'pole_pos_cov' in content :
+    #                 settings['est']['a_priori_pole'] = content['pole_pos_cov']
+    #             else:
+    #                 settings['est']['a_priori_pole'] = False
+                
+    #             if 'pole_lib_cov' in content :
+    #                 settings['est']['a_priori_lib'] = content['pole_lib_cov']
+    #                 settings['est']['a_priori_lib_deg'] = 1
+    #             else:
+    #                 settings['est']['a_priori_lib'] = False
+                    
+
+
+    #             #Run estimation + provide weights if needed
+    #             if content['use_weights'] == True:
+    #                 settings['obs']['use_loaded_obs'] = True 
+    #                 settings['obs']['use_old_obs_func'] = False
+    #                 settings["obs"]["manual_dec_bias"] = bias_dict
+            
+    #                 if estimation_type == 'IAUPole':
+    #                     estimation_output,_,_,body_settings,system_of_bodies = ObservationImplementation.main(
+    #                             settings,
+    #                             out_dir_current,
+    #                             observations=observations_IAUPole,
+    #                             observations_settings=observations_settings)
+    #                     weights_info_IAUPole.to_csv(out_dir_current / 'observation_weights.csv', index=False)
+                    
+                        
+    #                 elif estimation_type == 'SimPole':
+    #                     estimation_output,_,_,body_settings,system_of_bodies = ObservationImplementation.main(
+    #                             settings,
+    #                             out_dir_current,
+    #                             observations=observations_SimPole,
+    #                             observations_settings=observations_settings)
+    #                     weights_info_SimPole.to_csv(out_dir_current / 'observation_weights.csv', index=False)
+                    
+                        
+    #             else:
+    #                 estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
+    #                         settings,
+    #                         out_dir_current)
+
 
 
 
 #Test
 #-----------------#-----------------#-----------------#-----------------#-----------------#-----------------
-print("#######################################################################################################")
-print("LOAD KERNELS")
-print("#######################################################################################################")
-#Load kernels
-kernel_folder = "Kernels/"
-kernel_paths=[
-    "pck00010.tpc",
-    "gm_de440.tpc",
-    "nep097.bsp",     
-    #"nep105.bsp",
-    "naif0012.tls"
-    ]
-
-spice.load_standard_kernels()
-
-# Load your kernels
-for k in kernel_paths:
-    spice.load_kernel(os.path.join(kernel_folder, k))
 
 # EXAMPLE CODE 
 ##################################################################################################################
@@ -555,12 +1278,12 @@ for k in kernel_paths:
 
 
 
-# # # RUN ESTIMATION WITHOUT WEIGHTS FIRST
-# print("######################################")
-# print("Running NO WEIGHTS INITIAL STATE SIM")
-# print("######################################")
+# # RUN ESTIMATION WITHOUT WEIGHTS FIRST
+print("######################################")
+print("Running NO WEIGHTS INITIAL STATE SIM")
+print("######################################")
 
-# #fitted_pole_pos_lib_sim = PostProc.load_npy_files("Results/EstimatedParametersSimulatedObservations/PoleLibrations/pole_pos_and_libration_amplitude")
+#fitted_pole_pos_lib_sim = PostProc.load_npy_files("Results/EstimatedParametersSimulatedObservations/PoleLibrations/pole_pos_and_libration_amplitude")
 
 # settings['est']['a_priori_covariance'] = False
 
@@ -585,18 +1308,18 @@ for k in kernel_paths:
 #         settings,
 #         out_dir_current)
 
-# #Create Environment 
-# #body_settings,system_of_bodies = PropFuncs.Create_Env(settings['env'])
+#Create Environment 
+# body_settings,system_of_bodies = PropFuncs.Create_Env(settings['env'])
 
-# # #Load observations
-# # observations,observations_settings,observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
-# #         settings["obs"]["observations_folder_path"],
-# #         system_of_bodies,
-# #         settings['obs']["files"],
-# #         Residual_filtering = settings["obs"]["residual_filtering"])
+# #Load observations
+# observations,observations_settings,observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
+#         settings["obs"]["observations_folder_path"],
+#         system_of_bodies,
+#         settings['obs']["files"],
+#         Residual_filtering = settings["obs"]["residual_filtering"])
 
-
-# simulation = PostProc.load_npy_files(out_dir_current)
+# path_CASE1_weights = "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_initial_state_no_weights"
+# simulation = PostProc.load_npy_files(path_CASE1_weights)
 
 # residuals = simulation['residual_history_arcseconds'][-1]
 
@@ -607,21 +1330,6 @@ for k in kernel_paths:
 
 # # EXTRACT RESIDUALS FROM INITIAL SIM 
 # # AND COMPUTE/ASSIGN WEIGHTS FROM THEM
-# # observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(
-# #     residuals=residuals,
-# #     observations=observations,
-# #     gap_threshold_hours=4.0,
-# #     min_obs_per_frame=1,
-# #     weight_type = 'hybrid'
-# # )
-
-
-
-# # RUN ESTIMATION HYBRID WEIGHTS
-# print("######################################") 
-# print("Running INITIAL STATE HYBRID WEIGHTS SIM")
-# print("######################################")
-
 # observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(
 #     residuals=residuals,
 #     observations=observations,
@@ -630,995 +1338,54 @@ for k in kernel_paths:
 #     weight_type = 'hybrid'
 # )
 
-# settings['obs']['use_loaded_obs'] = True
-
-# out_dir_current = out_dir / "initial_state_hybrid_weights"
-# out_dir_current.mkdir(parents=True, exist_ok=True)
-
-
-# # # Save weights to CSV
-# weights_info.to_csv(out_dir_current / 'observation_weights.csv', index=False)
-
-# print("Observation weights: ",observations_weighted.get_concatenated_weights())
-# estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
-#         settings,
-#         out_dir_current,
-#         observations=observations_weighted,
-#         observations_settings=observations_settings)
 
 
 # # RUN ESTIMATION HYBRID WEIGHTS
 # print("######################################") 
-# print("Running HYBRID OLD WEIGHTS SIM")
+# print("Running INITIAL STATE HYBRID WEIGHTS SIM LOOP")
 # print("######################################")
 
+# for i in range(5):
 
-# observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(
-#     residuals=residuals,
-#     observations=observations,
-#     gap_threshold_hours=4.0,
-#     min_obs_per_frame=1,
-#     weight_type = 'hybrid_old'
-# )
+#     observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(
+#         residuals=residuals,
+#         observations=observations,
+#         gap_threshold_hours=4.0,
+#         min_obs_per_frame=1,
+#         weight_type = 'hybrid'
+#     )
 
-# settings['obs']['use_loaded_obs'] = True
+#     settings['prop']['initial_state'] = simulation['parameter_history'][:,-1]
+#     settings['obs']['use_loaded_obs'] = True
 
-# out_dir_current = out_dir / "initial_state_hybrid_old_weights"
-# out_dir_current.mkdir(parents=True, exist_ok=True)
+#     out_dir_current = out_dir / ("initial_state_hybrid_weights_" + str(i))
+#     out_dir_current.mkdir(parents=True, exist_ok=True)
 
 
+#     # # Save weights to CSV
+#     weights_info.to_csv(out_dir_current / 'observation_weights.csv', index=False)
 
-# weights_info.to_csv(out_dir_current / 'observation_weights.csv', index=False)
+#     #print("Observation weights: ",observations_weighted.get_concatenated_weights())
+#     estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
+#             settings,
+#             out_dir_current,
+#             observations=observations_weighted,
+#             observations_settings=observations_settings)
 
-# print("Observation weights: ",observations_weighted.get_concatenated_weights())
+#     #COMPUTE RESIDUALS FOR NEXT ITERATION
+#     simulation = PostProc.load_npy_files(out_dir_current)
 
-# estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
-#         settings,
-#         out_dir_current,
-#         observations=observations_weighted,
-#         observations_settings=observations_settings)
+#     residuals = simulation['residual_history_arcseconds'][-1]
 
-# # RUN ESTIMATION TF WEIGHTS
-# print("######################################") 
-# print("Running TF WEIGHTS SIM")
-# print("######################################")
+#     # Convert RA and DEC columns from arcseconds to radians
+#     residuals[:, 1] = residuals[:, 1] / (3600 * 180 / np.pi)  # RA
+#     residuals[:, 2] = residuals[:, 2] / (3600 * 180 / np.pi)  # DEC
 
 
-# observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(
-#     residuals=residuals,
-#     observations=observations,
-#     gap_threshold_hours=4.0,
-#     min_obs_per_frame=1,
-#     weight_type = 'timeframe'
-# )
 
-# settings['obs']['use_loaded_obs'] = True
 
-# out_dir_current = out_dir / "initial_state_tf_weights"
-# out_dir_current.mkdir(parents=True, exist_ok=True)
 
-
-# # # Save weights to CSV
-# weights_info.to_csv(out_dir_current / 'observation_weights.csv', index=False)
-
-# print("Observation weights: ",observations_weighted.get_concatenated_weights())
-
-# estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
-#         settings,
-#         out_dir_current,
-#         observations=observations_weighted,
-#         observations_settings=observations_settings)
-
-
-# # RUN ESTIMATION TF WEIGHTS
-# print("######################################") 
-# print("Running ID WEIGHTS SIM")
-# print("######################################")
-
-
-# observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(
-#     residuals=residuals,
-#     observations=observations,
-#     gap_threshold_hours=4.0,
-#     min_obs_per_frame=1,
-#     weight_type = 'id'
-# )
-
-# settings['obs']['use_loaded_obs'] = True
-
-# out_dir_current = out_dir / "initial_state_id_weights"
-# out_dir_current.mkdir(parents=True, exist_ok=True)
-
-
-# # # Save weights to CSV
-# weights_info.to_csv(out_dir_current / 'observation_weights.csv', index=False)
-
-# print("Observation weights: ",observations_weighted.get_concatenated_weights())
-
-# estimation_output,observations,observations_settings,body_settings,system_of_bodies = ObservationImplementation.main(
-#         settings,
-#         out_dir_current,
-#         observations=observations_weighted,
-#         observations_settings=observations_settings)
-
-
-
-# print("Test")
-
-
-
-
-def epoch_to_datetime(epoch_seconds):
-    """Convert seconds since J2000 to datetime"""
-    j2000 = datetime(2000, 1, 1, 12, 0, 0)  # J2000 epoch: Jan 1, 2000, 12:00:00
-    return j2000 + timedelta(seconds=epoch_seconds)
-
-def rad_to_mas(rad):
-    """Convert radians to milliarcseconds"""
-    return rad * (180/np.pi) * 3600 * 1000
-
-def weight_to_sigma_mas(weight):
-    """Convert weight (1/sigma^2 in rad^2) to sigma in mas"""
-    sigma_rad = 1.0 / np.sqrt(weight)
-    return rad_to_mas(sigma_rad)
-
-def plot_number_of_obs_vs_time(data, out_dir='/mnt/user-data/outputs'):
-    """
-    Plot 1: Number of Observations vs Time (matching your screenshot)
-    Groups observations by timeframe (night)
-    
-    Parameters:
-    -----------
-    data : pd.DataFrame
-        Must contain columns: 'time', 'ref_point_id', 'timeframe'
-    out_dir : str
-        Output directory for PDF
-    """
-    os.makedirs(out_dir, exist_ok=True)
-    
-    fig, ax = plt.subplots(figsize=(14, 6))
-    
-    # Get unique reference points
-    ref_points = data['ref_point_id'].unique()
-    
-    # Plot each reference point with different color
-    for ref in ref_points:
-        ref_data = data[data['ref_point_id'] == ref]
-        
-        # Group by timeframe and get mean time and count for each frame
-        timeframe_stats = ref_data.groupby('timeframe').agg({
-            'time': 'mean',  # Use mean time of observations in the frame
-            'ref_point_id': 'size'  # Count observations
-        }).reset_index()
-        timeframe_stats.columns = ['timeframe', 'time', 'count']
-        
-        ax.scatter(timeframe_stats['time'], timeframe_stats['count'], 
-                  label=ref, alpha=0.7, s=30)
-    
-    ax.set_xlabel('Time', fontsize=14)
-    ax.set_ylabel('Number of Observations', fontsize=14)
-    ax.set_title('Number of Observations vs Time', fontsize=16, fontweight='bold', 
-                color='#1E88E5', loc='left')
-    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    ax.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    output_path = os.path.join(out_dir, 'number_of_obs_vs_time.pdf')
-    plt.savefig(output_path, dpi=300, bbox_inches='tight', format='pdf')
-    print(f"Saved: {output_path}")
-    plt.close(fig)
-
-
-def plot_ra_dec_rmse_vs_time(residuals_data, out_dir='/mnt/user-data/outputs'):
-    """
-    Plot 2: RA and DEC RMSE vs Time (matching your screenshot)
-    Groups observations by timeframe (night)
-    
-    Parameters:
-    -----------
-    residuals_data : pd.DataFrame
-        Must contain: 'time', 'residual_ra', 'residual_dec', 'ref_point_id', 'timeframe'
-        Residuals should be in radians
-    out_dir : str
-        Output directory for PDF
-    """
-    os.makedirs(out_dir, exist_ok=True)
-    
-    fig, axes = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
-    
-    # Convert residuals to mas
-    residuals_data = residuals_data.copy()
-    residuals_data['residual_ra_mas'] = rad_to_mas(residuals_data['residual_ra'])
-    residuals_data['residual_dec_mas'] = rad_to_mas(residuals_data['residual_dec'])
-    
-    # Get unique reference points
-    ref_points = residuals_data['ref_point_id'].unique()
-    
-    # Calculate RMSE per timeframe
-    for ref in ref_points:
-        ref_data = residuals_data[residuals_data['ref_point_id'] == ref]
-        
-        # Group by timeframe and calculate RMSE for each
-        timeframe_stats = ref_data.groupby('timeframe').agg({
-            'time': 'mean',  # Mean time of the timeframe
-            'residual_ra_mas': 'mean',
-            'residual_dec_mas': 'mean',
-        }).reset_index()
-        
-        # Plot RA RMSE
-        axes[0].scatter(timeframe_stats['time'], timeframe_stats['residual_ra_mas'],
-                       label=ref, alpha=0.7, s=30)
-        
-        # Plot DEC RMSE
-        axes[1].scatter(timeframe_stats['time'], timeframe_stats['residual_dec_mas'],
-                       label=ref, alpha=0.7, s=30)
-    
-    axes[0].set_ylabel('Residual RA (mas)', fontsize=12)
-    axes[0].set_title('RA and DEC Residual vs Time', fontsize=16, fontweight='bold',
-                     color='#1E88E5', loc='left')
-    axes[0].grid(True, alpha=0.3)
-    axes[0].legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    #axes[0].set_yscale('log')
-    
-    axes[1].set_ylabel('Residual Dec (mas)', fontsize=12)
-    axes[1].set_xlabel('Time', fontsize=14)
-    axes[1].grid(True, alpha=0.3)
-    axes[1].legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    #axes[1].set_yscale('log')
-    
-    plt.tight_layout()
-    output_path = os.path.join(out_dir, 'ra_dec_residual_vs_time.pdf')
-    plt.savefig(output_path, dpi=300, bbox_inches='tight', format='pdf')
-    print(f"Saved: {output_path}")
-    plt.close(fig)
-
-def plot_rmse_vs_time(residuals_data, out_dir='/mnt/user-data/outputs'):
-    """
-    Plot 3: Weighted RMSE RA/DEC vs Time (matching your screenshot)
-    Groups observations by timeframe (night)
-    
-    Parameters:
-    -----------
-    residuals_data : pd.DataFrame
-        Must contain: 'time', 'residual_ra', 'residual_dec', 'ref_point_id', 
-                     'weight_ra', 'weight_dec', 'timeframe'
-        Residuals should be in radians, weights in rad^-2
-    out_dir : str
-        Output directory for PDF
-    """
-    os.makedirs(out_dir, exist_ok=True)
-    
-    fig, axes = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
-    
-    residuals_data = residuals_data.copy()
-    
-    # Calculate weighted residuals (normalized by uncertainty)
-    residuals_data['weighted_res_ra'] = (
-        residuals_data['residual_ra'] * np.sqrt(residuals_data['weight_ra'])
-    )
-    residuals_data['weighted_res_dec'] = (
-        residuals_data['residual_dec'] * np.sqrt(residuals_data['weight_dec'])
-    )
-    
-    # Get unique reference points
-    ref_points = residuals_data['ref_point_id'].unique()
-    
-    for ref in ref_points:
-        ref_data = residuals_data[residuals_data['ref_point_id'] == ref]
-        
-        # Group by timeframe
-        timeframe_stats = ref_data.groupby('timeframe').agg({
-            'time': 'mean',  # Mean time of the timeframe
-            'weighted_res_ra': lambda x: np.sqrt(np.mean(x**2)),  # RMSE for RA
-            'weighted_res_dec': lambda x: np.sqrt(np.mean(x**2))  # RMSE for DEC
-        }).reset_index()
-        
-        # Plot RA
-        axes[0].scatter(timeframe_stats['time'], timeframe_stats['weighted_res_ra'],
-                       label=ref, alpha=0.7, s=30)
-        
-        # Plot DEC
-        axes[1].scatter(timeframe_stats['time'], timeframe_stats['weighted_res_dec'],
-                       label=ref, alpha=0.7, s=30)
-    
-    axes[0].set_ylabel('Weighted RMSE RA (scaled)', fontsize=12)
-    axes[0].set_title('Weighted RMSE vs Time', fontsize=16, fontweight='bold',
-                     color='#1E88E5', loc='left')
-    axes[0].legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    axes[0].grid(True, alpha=0.3)
-    #axes[0].set_yscale('log')
-    
-    axes[1].set_ylabel('Weighted RMSE DEC (scaled)', fontsize=12)
-    axes[1].set_xlabel('Time', fontsize=14)
-    axes[1].legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    axes[1].grid(True, alpha=0.3)
-    #axes[1].set_yscale('log')
-    
-    plt.tight_layout()
-    output_path = os.path.join(out_dir, 'weighted_rmse_vs_time.pdf')
-    plt.savefig(output_path, dpi=300, bbox_inches='tight', format='pdf')
-    print(f"Saved: {output_path}")
-    plt.close(fig)
-
-
-def plot_weight_vs_n_obs(residuals_data, out_dir='/mnt/user-data/outputs'):
-    """
-    Plot 4: Weights vs Number of Observations
-    Shows how weights relate to number of observations per timeframe
-    One point per timeframe
-    
-    Parameters:
-    -----------
-    residuals_data : pd.DataFrame
-        Must contain: 'weight_ra', 'weight_dec', 'ref_point_id', 'timeframe'
-        Weights in rad^-2
-    out_dir : str
-        Output directory for PDF
-    """
-    os.makedirs(out_dir, exist_ok=True)
-    
-    fig, axes = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
-    
-    residuals_data = residuals_data.copy()
-    
-    # Get unique reference points
-    ref_points = residuals_data['ref_point_id'].unique()
-    
-    for ref in ref_points:
-        ref_data = residuals_data[residuals_data['ref_point_id'] == ref]
-        
-        # Get mean weight and count per timeframe
-        timeframe_stats = ref_data.groupby('timeframe').agg({
-            'weight_ra': 'mean',  # Mean RA weight for the timeframe
-            'weight_dec': 'mean'  # Mean DEC weight for the timeframe
-        }).reset_index()
-        
-        # Calculate number of observations per timeframe
-        obs_per_frame = ref_data.groupby('timeframe').size().reset_index(name='n_obs')
-        timeframe_stats = timeframe_stats.merge(obs_per_frame, on='timeframe')
-        
-        # Plot RA weights vs n_obs
-        axes[0].scatter(timeframe_stats['n_obs'], timeframe_stats['weight_ra'], 
-                       label=ref, alpha=0.7, s=30)
-        
-        # Plot DEC weights vs n_obs
-        axes[1].scatter(timeframe_stats['n_obs'], timeframe_stats['weight_dec'], 
-                       label=ref, alpha=0.7, s=30)
-    
-    axes[0].set_ylabel('Weight RA [rad⁻²]', fontsize=12)
-    axes[0].set_title('Weights vs Number of Observations', fontsize=16, fontweight='bold',
-                     color='#1E88E5', loc='left')
-    axes[0].legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    axes[0].grid(True, alpha=0.3)
-    axes[0].set_yscale('log')
-    
-    axes[1].set_ylabel('Weight DEC [rad⁻²]', fontsize=12)
-    axes[1].set_xlabel('Number of Observations per Timeframe', fontsize=14)
-    axes[1].legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    axes[1].grid(True, alpha=0.3)
-    axes[1].set_yscale('log')
-    
-    plt.tight_layout()
-    output_path = os.path.join(out_dir, 'weights_vs_num_obs.pdf')
-    plt.savefig(output_path, dpi=300, bbox_inches='tight', format='pdf')
-    print(f"Saved: {output_path}")
-    plt.close(fig)
-
-def plot_weights_analysis(weights_info, out_dir='/mnt/user-data/outputs'):
-    """
-    Plot 5: Comprehensive Weights Analysis (9 subplots)
-    
-    Parameters:
-    -----------
-    weights_info : pd.DataFrame
-        Must contain: 'weight_ra_hybrid', 'weight_dec_hybrid', 'ref_point_id',
-                     'global_obs_index'
-    out_dir : str
-        Output directory for PDF
-    """
-    os.makedirs(out_dir, exist_ok=True)
-    
-    # Convert weights to uncertainties in mas
-    sigma_ra = weight_to_sigma_mas(weights_info['weight_ra_hybrid'])
-    sigma_dec = weight_to_sigma_mas(weights_info['weight_dec_hybrid'])
-    
-    residuals_ra = rad_to_mas(weights_info['ra_residual'])
-    residuals_dec = rad_to_mas(weights_info['dec_residual'])
-
-    fig = plt.figure(figsize=(16, 12))
-    
-    # =========================================================================
-    # Plot 1: Residuals Histogram
-    # =========================================================================
-    ax1 = plt.subplot(3, 3, 1)
-    
-    ax1.hist(residuals_ra, bins=50, alpha=0.6, label='RA (σ)', color='blue', edgecolor='black')
-    ax1.hist(residuals_dec, bins=50, alpha=0.6, label='DEC (σ)', color='red', edgecolor='black')
-    ax1.set_xlabel('Residuals (mas)', fontsize=11)
-    ax1.set_ylabel('Count', fontsize=11)
-    ax1.set_title('Distribution of Observation Residuals', fontsize=12, fontweight='bold')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-    #ax1.set_yscale('log')
-    
-    # =========================================================================
-    # Plot 2: Weights on Log Scale
-    # =========================================================================
-    ax2 = plt.subplot(3, 3, 2)
-    
-    ax2.hist(np.log10(weights_info['weight_ra_hybrid']), bins=50, alpha=0.6, 
-             label='RA', color='blue', edgecolor='black')
-    ax2.hist(np.log10(weights_info['weight_dec_hybrid']), bins=50, alpha=0.6,
-             label='DEC', color='red', edgecolor='black')
-    ax2.set_xlabel('log₁₀(Weight) [rad⁻²]', fontsize=11)
-    ax2.set_ylabel('Count', fontsize=11)
-    ax2.set_title('Distribution of Weights (Log Scale)', fontsize=12, fontweight='bold')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
-    
-    # =========================================================================
-    # Plot 3: RA vs DEC Residual Scatter
-    # =========================================================================
-    ax3 = plt.subplot(3, 3, 3)
-
-    # Get unique reference points and assign colors
-    ref_points = weights_info['ref_point_id'].unique()
-    colors = plt.cm.tab20(np.linspace(0, 1, len(ref_points)))
-    ref_to_color = dict(zip(ref_points, colors))
-
-    # Plot each reference point with its unique color
-    for ref in ref_points:
-        mask = weights_info['ref_point_id'] == ref
-        ax3.scatter(residuals_ra[mask], residuals_dec[mask], 
-                    c=[ref_to_color[ref]], 
-                    label=ref, alpha=0.6, s=20)
-
-    max_sigma = max(residuals_ra.max(), residuals_dec.max())
-    ax3.plot([0, max_sigma], [0, max_sigma], 
-            'k--', alpha=0.5, label='σ_RA = σ_DEC', linewidth=1.5)
-    ax3.set_xlabel('RA Residual (mas)', fontsize=11)
-    ax3.set_ylabel('DEC Residual (mas)', fontsize=11)
-    ax3.set_title('RA vs DEC Residual', fontsize=12, fontweight='bold')
-    ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8, 
-            framealpha=0.9, ncol=1)
-    ax3.grid(True, alpha=0.3)
-
-    # =========================================================================
-    # Plot 4: Residual vs Time
-    # =========================================================================
-    ax4 = plt.subplot(3, 3, 4)
-    
-    ax4.scatter(weights_info['time'], residuals_ra, 
-               alpha=0.5, s=10, label='RA', color='blue')
-    ax4.scatter(weights_info['time'], residuals_dec,
-               alpha=0.5, s=10, label='DEC', color='red')
-    ax4.set_xlabel('Time', fontsize=11)
-    ax4.set_ylabel('Residual (mas)', fontsize=11)
-    ax4.set_title('Residuals vs Time', fontsize=12, fontweight='bold')
-    ax4.legend()
-    ax4.grid(True, alpha=0.3)
-    #ax4.set_yscale('log')
-    
-    # =========================================================================
-    # Plot 5: Residual by Set ID
-    # =========================================================================
-    ax5 = plt.subplot(3, 3, 5)
-    
-    ref_points = weights_info['ref_point_id'].unique()
-    
-    ra_by_ref = [sigma_ra[weights_info['ref_point_id'] == ref].values
-                 for ref in ref_points]
-    dec_by_ref = [sigma_dec[weights_info['ref_point_id'] == ref].values
-                  for ref in ref_points]
-    
-    positions_ra = np.arange(len(ref_points)) * 2 - 0.3
-    positions_dec = np.arange(len(ref_points)) * 2 + 0.3
-    
-    bp1 = ax5.boxplot(ra_by_ref, positions=positions_ra, widths=0.5,
-                     patch_artist=True, showfliers=True)
-    bp2 = ax5.boxplot(dec_by_ref, positions=positions_dec, widths=0.5,
-                     patch_artist=True, showfliers=True)
-    
-    for patch in bp1['boxes']:
-        patch.set_facecolor('blue')
-        patch.set_alpha(0.6)
-    for patch in bp2['boxes']:
-        patch.set_facecolor('red')
-        patch.set_alpha(0.6)
-    
-    ax5.set_xlabel('Set ID', fontsize=11)
-    ax5.set_ylabel('RMSE (mas)', fontsize=11)
-    ax5.set_title('RMSE by Set ID', fontsize=12, fontweight='bold')
-    ax5.set_xticks(np.arange(len(ref_points)) * 2)
-    ax5.set_xticklabels(ref_points, rotation=45, ha='right')
-    ax5.grid(True, alpha=0.3, axis='y')
-    #ax5.set_yscale('log')
-    
-    from matplotlib.patches import Patch
-    legend_elements = [Patch(facecolor='blue', alpha=0.6, label='RA'),
-                      Patch(facecolor='red', alpha=0.6, label='DEC')]
-    ax5.legend(handles=legend_elements, loc='upper right')
-    
-    # =========================================================================
-    # Plot 6: Mean residuals by Set ID
-    # =========================================================================
-    ax6 = plt.subplot(3, 3, 6)
-    
-    stats_data = []
-    for ref in ref_points:
-        mask = weights_info['ref_point_id'] == ref
-        stats_data.append({
-            'ref': ref,
-            'count': mask.sum(),
-            'mean_ra': sigma_ra[mask].mean(),
-            'mean_dec': sigma_dec[mask].mean()
-        })
-    stats_df = pd.DataFrame(stats_data)
-    
-    x = np.arange(len(ref_points))
-    width = 0.35
-    
-    bars1 = ax6.bar(x - width/2, stats_df['mean_ra'], width, 
-                   label='RA Mean', alpha=0.7, color='blue')
-    bars2 = ax6.bar(x + width/2, stats_df['mean_dec'], width,
-                   label='DEC Mean', alpha=0.7, color='red')
-    
-    ax6.set_xlabel('Set ID', fontsize=11)
-    ax6.set_ylabel('Mean Residual (mas)', fontsize=11)
-    ax6.set_title('Mean Residual by Set ID', fontsize=12, fontweight='bold')
-    ax6.set_xticks(x)
-    ax6.set_xticklabels(ref_points, rotation=45, ha='right')
-    ax6.legend()
-    ax6.grid(True, alpha=0.3, axis='y')
-    
-    # =========================================================================
-    # Plot 7: Cumulative Distribution
-    # =========================================================================
-    ax7 = plt.subplot(3, 3, 7)
-    
-    sorted_ra = np.sort(residuals_ra)
-    sorted_dec = np.sort(residuals_dec)
-    cumulative = np.arange(1, len(sorted_ra) + 1) / len(sorted_ra) * 100
-    
-    ax7.plot(sorted_ra, cumulative, label='RA', color='blue', linewidth=2)
-    ax7.plot(sorted_dec, cumulative, label='DEC', color='red', linewidth=2)
-    ax7.axhline(50, color='gray', linestyle='--', alpha=0.5, label='Median')
-    ax7.set_xlabel('Uncertainty (mas)', fontsize=11)
-    ax7.set_ylabel('Cumulative Percentage (%)', fontsize=11)
-    ax7.set_title('Cumulative Distribution of Residuals', fontsize=12, fontweight='bold')
-    ax7.legend()
-    ax7.grid(True, alpha=0.3)
-    #ax7.set_xscale('log')
-    
-    # =========================================================================
-    # Plot 8: Uncertainty Ratio (RA/DEC)
-    # =========================================================================
-    ax8 = plt.subplot(3, 3, 8)
-    
-    uncertainty_ratio = sigma_ra / sigma_dec
-    
-    ax8.hist(uncertainty_ratio, bins=50, alpha=0.7, color='purple', edgecolor='black')
-    ax8.axvline(1.0, color='black', linestyle='--', linewidth=2, label='Equal uncertainties')
-    ax8.axvline(uncertainty_ratio.median(), color='red', linestyle='--', 
-               linewidth=2, label=f'Median = {uncertainty_ratio.median():.2f}')
-    ax8.set_xlabel('σ_RA / σ_DEC Ratio', fontsize=11)
-    ax8.set_ylabel('Count', fontsize=11)
-    ax8.set_title('RA/DEC Residual Ratio', fontsize=12, fontweight='bold')
-    ax8.legend()
-    ax8.grid(True, alpha=0.3)
-    
-    # =========================================================================
-    # Plot 9: Summary Statistics
-    # =========================================================================
-    ax9 = plt.subplot(3, 3, 9)
-    ax9.axis('off')
-    
-    stats_text = f"""
-    WEIGHT STATISTICS SUMMARY
-    {'='*45}
-    
-    Total Observations: {len(weights_info):,}
-    Reference Points: {len(ref_points)}
-    
-    RA Residuals (mas):
-      Min:    {residuals_ra.min():.4f}
-      Max:    {residuals_ra.max():.4f}
-      Mean:   {residuals_ra.mean():.4f}
-      Median: {residuals_ra.median():.4f}
-      Std:    {residuals_ra.std():.4f}
-      RMS:    {np.sqrt(np.mean(residuals_ra**2)):.4f}
-    
-    DEC Residuals (mas):
-      Min:    {residuals_dec.min():.4f}
-      Max:    {residuals_dec.max():.4f}
-      Mean:   {residuals_dec.mean():.4f}
-      Median: {residuals_dec.median():.4f}
-      Std:    {residuals_dec.std():.4f}
-      RMS:    {np.sqrt(np.mean(residuals_dec**2)):.4f}
-
-    Ratio σ_RA/σ_DEC:
-      Mean:   {uncertainty_ratio.mean():.4f}
-      Median: {uncertainty_ratio.median():.4f}
-    """
-    
-    ax9.text(0.1, 0.5, stats_text, fontsize=10, family='monospace',
-            verticalalignment='center', transform=ax9.transAxes)
-    
-    plt.tight_layout()
-    output_path = os.path.join(out_dir, 'weights_analysis.pdf')
-    plt.savefig(output_path, dpi=300, bbox_inches='tight', format='pdf')
-    print(f"Saved: {output_path}")
-    plt.close(fig)
-
-
-# ============================================================================
-# MAIN FUNCTION TO CREATE ALL WEIGHT PLOTS
-# ============================================================================
-
-def create_all_plots(weights_info, out_dir='/mnt/user-data/outputs'):
-    """
-    Create all analysis plots from weights_info DataFrame
-    
-    Parameters:
-    -----------
-    weights_info : pd.DataFrame
-        Complete weights and residuals data with columns:
-        - time: observation times
-        - ref_point_id: reference point identifier  
-        - global_obs_index: global observation index
-        - ra_residual, dec_residual: residuals in radians
-        - weight_ra_hybrid, weight_dec_hybrid: hybrid weights in rad^-2
-        - weight_ra_id, weight_dec_id: ID-level weights
-        - weight_ra_local, weight_dec_local: local/timeframe weights
-    
-    out_dir : str
-        Output directory for all PDFs
-    """
-    print("="*70)
-    print("CREATING ALL ANALYSIS PLOTS")
-    print("="*70)
-    
-    # Verify required columns exist
-    required_cols = ['time', 'ref_point_id', 'global_obs_index', 
-                     'ra_residual', 'dec_residual',
-                     'weight_ra_hybrid', 'weight_dec_hybrid']
-    missing_cols = [col for col in required_cols if col not in weights_info.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns in weights_info: {missing_cols}")
-    
-    # Convert time to datetime if needed
-    weights_info = weights_info.copy()
-    if not pd.api.types.is_datetime64_any_dtype(weights_info['time']):
-        # Time is in seconds since J2000
-        print("Converting time from J2000 epoch seconds to datetime...")
-        weights_info['time'] = weights_info['time'].apply(epoch_to_datetime)
-        weights_info['time'] = pd.to_datetime(weights_info['time'])
-    
-    # Prepare residuals data with correct column names for residual functions
-    residuals_data = weights_info.copy()
-    if 'weight_ra' not in residuals_data.columns:
-        residuals_data['weight_ra'] = residuals_data['weight_ra_hybrid']
-        residuals_data['weight_dec'] = residuals_data['weight_dec_hybrid']
-    if 'residual_ra' not in residuals_data.columns:
-        residuals_data['residual_ra'] = residuals_data['ra_residual']
-        residuals_data['residual_dec'] = residuals_data['dec_residual']
-    
-    # Create all plots
-    print("\n[1/5] Creating weights analysis...")
-    plot_weights_analysis(weights_info, out_dir)
-    
-    print("\n[2/5] Creating number of observations vs time...")
-    plot_number_of_obs_vs_time(weights_info, out_dir)
-    
-    print("\n[3/5] Creating RA and DEC RMSE vs time...")
-    plot_ra_dec_rmse_vs_time(residuals_data, out_dir)
-    
-    print("\n[4/5] Creating RMSE vs time...")
-    plot_rmse_vs_time(residuals_data, out_dir)
-    
-    print("\n[5/5] Creating Weight vs number of observations...")
-    plot_weight_vs_n_obs(residuals_data, out_dir)
-    
-    print("\n" + "="*70)
-    print("ALL PLOTS COMPLETED!")
-    print("="*70)
-
-
-
-
-#create_all_plots(weights_info, out_dir)
-
-
-def plot_hybrid_weights_vs_time(weights_info, save_path=None):
-    """
-    Plot hybrid weights vs time, grouped by ref_point_id and timeframe
-    
-    Parameters:
-    -----------
-    weights_info : pd.DataFrame
-        DataFrame with columns including 'time', 'ref_point_id', 'timeframe',
-        'weight_ra_hybrid', 'weight_dec_hybrid'
-    save_path : str, optional
-        Path to save the figure
-        
-    Returns:
-    --------
-    fig : matplotlib.figure.Figure
-        The created figure
-    """
-    
-    # Group by ref_point_id and timeframe, calculate mean weights and time
-    grouped = weights_info.groupby(['ref_point_id', 'timeframe']).agg({
-        'time': 'mean',  # Use mean time for the timeframe
-        'weight_ra_hybrid': 'mean',
-        'weight_dec_hybrid': 'mean'
-    }).reset_index()
-    
-    # Convert times to datetime
-    grouped['datetime'] = grouped['time'].apply(epoch_to_datetime)
-    
-    # Get unique ref_point_ids and create color map
-    unique_ids = grouped['ref_point_id'].unique()
-    colors = plt.cm.tab20(np.linspace(0, 1, len(unique_ids)))
-    color_map = dict(zip(unique_ids, colors))
-    
-    # Create figure with two subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
-    
-    # Plot RA weights
-    for ref_id in unique_ids:
-        mask = grouped['ref_point_id'] == ref_id
-        ax1.scatter(grouped[mask]['datetime'], 
-                   grouped[mask]['weight_ra_hybrid'],
-                   color=color_map[ref_id], 
-                   label=ref_id, 
-                   alpha=0.6,
-                   s=50)
-    
-    ax1.set_yscale('log')
-    ax1.set_ylabel('Weight RA Hybrid', fontsize=12)
-    ax1.set_title('Hybrid Weights vs Time (grouped by ID and Timeframe)', fontsize=14)
-    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax1.grid(True, alpha=0.3)
-    
-    # Plot DEC weights
-    for ref_id in unique_ids:
-        mask = grouped['ref_point_id'] == ref_id
-        ax2.scatter(grouped[mask]['datetime'], 
-                   grouped[mask]['weight_dec_hybrid'],
-                   color=color_map[ref_id], 
-                   label=ref_id, 
-                   alpha=0.6,
-                   s=50)
-    
-    ax2.set_yscale('log')
-    ax2.set_xlabel('Time', fontsize=12)
-    ax2.set_ylabel('Weight DEC Hybrid', fontsize=12)
-    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax2.grid(True, alpha=0.3)
-    
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
-    return fig
-
-# Usage:
-# fig = plot_hybrid_weights_vs_time(weights_info, save_path='hybrid_weights_vs_time.pdf')
-    
-#How to get reference point of a observation list
-
-
-print("#######################################################################################################")
-print("ANALYSE DATA (AGAIN)")
-print("#######################################################################################################")
-
-def calculate_midpoint(row):
-    """Calculate midpoint of timeframe"""
-    return (row['start_sec'] + row['end_sec']) / 2
-
-def get_color_map(df):
-    """Create a color map for each unique id"""
-    unique_ids = df['id'].unique()
-    colors = plt.cm.tab20(np.linspace(0, 1, len(unique_ids)))
-    color_map = dict(zip(unique_ids, colors))
-    return color_map
-
-def plot_all_data(df, save_dir=None):
-    """Create all plots for the entire dataframe"""
-    
-    # Add midpoint column
-    df = df.copy()
-    df['midpoint_sec'] = df.apply(calculate_midpoint, axis=1)
-    df['midpoint_datetime'] = df['midpoint_sec'].apply(epoch_to_datetime)
-    
-    # Get color map
-    color_map = get_color_map(df)
-    
-    # Plot 1: n_obs vs time
-    fig1, ax1 = plt.subplots(figsize=(12, 6))
-    for id_val in df['id'].unique():
-        mask = df['id'] == id_val
-        ax1.scatter(df[mask]['midpoint_datetime'], df[mask]['n_obs'], 
-                   color=color_map[id_val], label=id_val, alpha=0.6)
-    ax1.set_xlabel('Time')
-    ax1.set_ylabel('Number of Observations')
-    ax1.set_title('Number of Observations vs Time')
-    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax1.grid(True, alpha=0.3)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/n_obs_vs_time_all.pdf", dpi=300, bbox_inches='tight')
-    #plt.show()
-    
-    # Plot 2: mean_weight_rmse_tf_id_scaled vs time
-    fig2, ax2 = plt.subplots(figsize=(12, 6))
-    for id_val in df['id'].unique():
-        mask = df['id'] == id_val
-        ax2.scatter(df[mask]['midpoint_datetime'], df[mask]['mean_weight_rmse_tf_id_scaled'], 
-                   color=color_map[id_val], label=id_val, alpha=0.6)
-    ax2.set_yscale('log')               
-    ax2.set_xlabel('Time')
-    ax2.set_ylabel('Mean Weighted RMSE (scaled)')
-    ax2.set_title('Mean Weighted RMSE vs Time')
-    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax2.grid(True, alpha=0.3)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/rmse_vs_time_all.pdf", dpi=300, bbox_inches='tight')
-    #plt.show()
-    
-    # Plot 3: mean_weight_rmse_tf_id_scaled vs n_obs
-    fig3, ax3 = plt.subplots(figsize=(10, 6))
-    for id_val in df['id'].unique():
-        mask = df['id'] == id_val
-        ax3.scatter(df[mask]['n_obs'], df[mask]['mean_weight_rmse_tf_id_scaled'], 
-                   color=color_map[id_val], label=id_val, alpha=0.6)
-    ax3.set_yscale('log')
-    ax3.set_xlabel('Number of Observations')
-    ax3.set_ylabel('Mean Weighted RMSE (scaled)')
-    ax3.set_title('Mean Weighted RMSE vs Number of Observations')
-    ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax3.grid(True, alpha=0.3)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/rmse_vs_nobs_all.pdf", dpi=300, bbox_inches='tight')
-    #plt.show()
-    
-    # Plot 4: RA and Dec RMSE vs time (subplots)
-    fig4, (ax4a, ax4b) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
-    
-    # RA subplot
-    for id_val in df['id'].unique():
-        mask = df['id'] == id_val
-        ax4a.scatter(df[mask]['midpoint_datetime'], df[mask]['weight_rmse_ra_tf_id_scaled'], 
-                    color=color_map[id_val], label=id_val, alpha=0.6)
-    ax4a.set_yscale('log')
-    ax4a.set_ylabel('Weighted RMSE RA (scaled)')
-    ax4a.set_title('Weighted RMSE RA vs Time')
-    ax4a.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax4a.grid(True, alpha=0.3)
-    
-    # Dec subplot
-    for id_val in df['id'].unique():
-        mask = df['id'] == id_val
-        ax4b.scatter(df[mask]['midpoint_datetime'], df[mask]['weight_rmse_dec_tf_id_scaled'], 
-                    color=color_map[id_val], label=id_val, alpha=0.6)
-    ax4b.set_yscale('log')
-    ax4b.set_xlabel('Time')
-    ax4b.set_ylabel('Weighted RMSE Dec (scaled)')
-    ax4b.set_title('Weighted RMSE Dec vs Time')
-    ax4b.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax4b.grid(True, alpha=0.3)
-    
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/ra_dec_rmse_vs_time_all.pdf", dpi=300, bbox_inches='tight')
-    #plt.show()
-    
-    return color_map
-
-
-def plot_per_id(df, id_val, color_map=None, save_dir=None):
-    """Create all plots for a specific id"""
-    
-    # Filter data for this id
-    df_id = df[df['id'] == id_val].copy()
-    df_id['midpoint_sec'] = df_id.apply(calculate_midpoint, axis=1)
-    df_id['midpoint_datetime'] = df_id['midpoint_sec'].apply(epoch_to_datetime)
-    
-    # Get color
-    if color_map is None:
-        color = 'blue'
-    else:
-        color = color_map[id_val]
-    
-    # Plot 1: n_obs vs time
-    fig1, ax1 = plt.subplots(figsize=(10, 6))
-    ax1.scatter(df_id['midpoint_datetime'], df_id['n_obs'], color=color, alpha=0.6)
-    ax1.set_xlabel('Time')
-    ax1.set_ylabel('Number of Observations')
-    ax1.set_title(f'Number of Observations vs Time - {id_val}')
-    ax1.grid(True, alpha=0.3)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/n_obs_vs_time_{id_val}.pdf", dpi=300, bbox_inches='tight')
-    plt.show()
-    
-    # Plot 2: mean_weight_rmse_tf_id_scaled vs time
-    fig2, ax2 = plt.subplots(figsize=(10, 6))
-    ax2.scatter(df_id['midpoint_datetime'], df_id['mean_weight_rmse_tf_id_scaled'], 
-               color=color, alpha=0.6)
-    ax2.set_yscale('log')               
-    ax2.set_xlabel('Time')
-    ax2.set_ylabel('Mean Weighted RMSE (scaled)')
-    ax2.set_title(f'Mean Weighted RMSE vs Time - {id_val}')
-    ax2.grid(True, alpha=0.3)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/rmse_vs_time_{id_val}.pdf", dpi=300, bbox_inches='tight')
-    plt.show()
-    
-    # Plot 3: mean_weight_rmse_tf_id_scaled vs n_obs
-    fig3, ax3 = plt.subplots(figsize=(10, 6))
-    ax3.scatter(df_id['n_obs'], df_id['mean_weight_rmse_tf_id_scaled'], 
-               color=color, alpha=0.6)
-    ax3.set_yscale('log')
-    ax3.set_xlabel('Number of Observations')
-    ax3.set_ylabel('Mean Weighted RMSE (scaled)')
-    ax3.set_title(f'Mean Weighted RMSE vs Number of Observations - {id_val}')
-    ax3.grid(True, alpha=0.3)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/rmse_vs_nobs_{id_val}.pdf", dpi=300, bbox_inches='tight')
-    plt.show()
-    
-    # Plot 4: RA and Dec RMSE vs time (subplots)
-    fig4, (ax4a, ax4b) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
-    
-    # RA subplot
-    ax4a.scatter(df_id['midpoint_datetime'], df_id['weight_rmse_ra_tf_id_scaled'], 
-                color=color, alpha=0.6)
-    ax4a.set_yscale('log')                
-    ax4a.set_ylabel('Weighted RMSE RA (scaled)')
-    ax4a.set_title(f'Weighted RMSE RA vs Time - {id_val}')
-    ax4a.grid(True, alpha=0.3)
-    
-    # Dec subplot
-    ax4b.scatter(df_id['midpoint_datetime'], df_id['weight_rmse_dec_tf_id_scaled'], 
-                color=color, alpha=0.6)
-    ax4b.set_yscale('log')                
-    ax4b.set_xlabel('Time')
-    ax4b.set_ylabel('Weighted RMSE Dec (scaled)')
-    ax4b.set_title(f'Weighted RMSE Dec vs Time - {id_val}')
-    ax4b.grid(True, alpha=0.3)
-    
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    if save_dir:
-        plt.savefig(f"{save_dir}/ra_dec_rmse_vs_time_{id_val}.pdf", dpi=300, bbox_inches='tight')
-    plt.show()
-
-def plot_all_ids(df, save_dir=None):
-    """Create plots for each id in the dataframe"""
-    color_map = get_color_map(df)
-    
-    for id_val in df['id'].unique():
-        print(f"Plotting for {id_val}...")
-        plot_per_id(df, id_val, color_map, save_dir)
-
-
-# plot_all_data(summary, save_dir=out_dir)
-# plot_all_ids(summary, save_dir=out_dir)
-
-print("#######################################################################################################")
+print("#########################################################################################")
 print("CREATE SPICE STATES")
 print("#######################################################################################################")
 
@@ -1646,7 +1413,7 @@ for k in kernel_paths:
 
 
 # GET SPICE Results (any sim should work)
-epochs_full = simulations['Initial_State_No_Weights']['state_history_array'][:,0]
+epochs_full = simulations[list(simulations.keys())[0]]['state_history_array'][:,0]
 
 # Downsample: select every N-th point (adjust N for desired spacing)
 # For ~4-5 hours with 1-hour spacing, use N=4 or N=5
@@ -1674,6 +1441,105 @@ states_SPICE = np.array([
 time_column = epochs.reshape(-1, 1)
 states_SPICE_with_time = np.hstack((time_column, states_SPICE))
 
+
+states_SPICE_full = np.array([
+    spice.get_body_cartesian_state_at_epoch(
+        target_body_name="Triton",
+        observer_body_name="Neptune",
+        reference_frame_name=global_frame_orientation,
+        aberration_corrections="NONE",
+        ephemeris_time=epoch
+    )
+    for epoch in epochs_full
+])
+
+time_column_full = epochs_full.reshape(-1, 1)
+states_SPICE_with_time_full = np.hstack((time_column_full, states_SPICE_full))
+
+
+print("#######################################################################################################")
+print("CREATE RSW FORMAL ERRORS")
+print("#######################################################################################################")
+
+# pole_params = fitted_pole_pos_lib_sim['parameter_history'][6:,-1]
+
+# settings['env']['initial_Pole_Pos'] = pole_params[0:2]
+# settings['env']['initial_Pole_lib_deg1'] = pole_params[2:4]
+
+# Run Propagation of Covariances and rotate to RSW 
+RunFormalErrors = False
+if RunFormalErrors == True:
+
+    settings["prop"].pop("initial_state",None)
+    settings['env'].pop('initial_Pole_Pos', None)
+    settings['env'].pop('initial_Pole_lib_deg1', None)
+    for name in simulations.keys():
+        if VARIANTS[name]['use_weights'] == True:
+
+            #Assign initial pole pos and lib based on simulation
+            if name.split('_')[0] == 'IAUPole':
+                settings['env'].pop('initial_Pole_Pos', None)
+                settings['env'].pop('initial_Pole_lib_deg1', None)
+            elif name.split('_')[0] == 'SimPole':
+                pole_params_sim = fitted_pole_pos_lib_sim['parameter_history'][6:,-1]
+
+                settings['env']['initial_Pole_Pos'] = pole_params_sim[0:2]
+                settings['env']['initial_Pole_lib_deg1'] = pole_params_sim[2:4]
+
+
+            settings['est']['est_parameters'] = simulations[name]["est_parameters"]
+
+            settings["prop"]["initial_covariance"] = simulations[name]['covariance'] #[:6, :6]
+            settings["prop"]["initial_state"] = simulations[name]['parameter_history'][0:6, -1]
+
+
+
+            pole_params = simulations[name]['parameter_history'][6:, -1]
+
+            # Check the size and assign accordingly
+            if len(pole_params) == 2:
+                if 'iau_rotation_model_pole' in VARIANTS[name]['est_parameters']:
+                    settings['env']['initial_Pole_Pos'] = pole_params[0:2]
+                elif 'iau_rotation_model_pole_librations' in VARIANTS[name]['est_parameters']:
+                    settings['env']['initial_Pole_lib_deg1'] = pole_params[0:2]
+            elif len(pole_params) == 4:
+                # Assign both pole position and libration degree 1
+                settings['env']['initial_Pole_Pos'] = pole_params[0:2]
+                settings['env']['initial_Pole_lib_deg1'] = pole_params[2:4]
+                
+            out_dir_current = out_dir / (name + '_CovarianceAnalysis')
+            out_dir_current.mkdir(parents=True, exist_ok=True)
+
+            state_history_array,covariances = UncertantyPropUtils.RunSinglePropagation(settings, out_dir_current)
+            
+            # # Set pole params back to initial 
+            # pole_params = fitted_pole_pos_lib_sim['parameter_history'][6:,-1]
+
+            # settings['env']['initial_Pole_Pos'] = pole_params[0:2]
+            # settings['env']['initial_Pole_lib_deg1'] = pole_params[2:4]
+
+            settings['env'].pop('initial_Pole_Pos', None)
+            settings['env'].pop('initial_Pole_lib_deg1', None)
+
+            #Check if state_history_array is the same as 
+            state_history_array_sim = simulations[name]['state_history_array_full'][-1]
+            print('Max Diff X: ',np.max(state_history_array[:,1]-state_history_array_sim[:,1]))
+            print('Max Diff Y: ',np.max(state_history_array[:,2]-state_history_array_sim[:,2]))
+            print('Max Diff Z: ',np.max(state_history_array[:,3]-state_history_array_sim[:,3]))
+            #Rotate to RSW (of SPICE?) 
+            Covariances_array_RSW = ProcessingUtils.rotate_covariance_inertial_to_rsw(time_column_full, covariances, states_SPICE_with_time_full)
+            np.save(out_dir_current / "covariances_array_rsw.npy",Covariances_array_RSW)
+
+            diag = np.diagonal(Covariances_array_RSW, axis1=1, axis2=2)
+            formal_errors_RSW = np.sqrt(diag[:,0:3])/1e3
+            
+            fig_RSW = FigUtils.Residuals_RSW(formal_errors_RSW, time_column_full,type="difference",title=("RSW Formal Errors " + name))   
+            fig_RSW.savefig(out_dir_current / ("Formal_Errors_Propagated_RSW" + name + ".pdf"))
+
+            simulations[name]['formal_errors_RSW_km'] = formal_errors_RSW
+
+
+
 print("#######################################################################################################")
 print("CREATE RSW STATES FIGS")
 print("#######################################################################################################")
@@ -1682,6 +1548,8 @@ diff_SPICE_RSW = {}
 rms_SPICE = {}
 rms_Norm = {}
 diff_wrt_norm_RSW = {}
+diff_init_SPICE_RSW = {}
+time_column_initial = {}
 
 states_SPICE_RSW = ProcessingUtils.rotate_inertial_3_to_rsw(time_column, states_SPICE[:,0:3], states_SPICE_with_time)
 
@@ -1693,16 +1561,25 @@ if RSW_RMS_PLOTS == True:
     for key in simulations.keys():
         state_history_array_full = simulations[key]['state_history_array_full'][-1]
         
+        state_history_array_init = simulations[key]['state_history_array_full'][0]
         # Downsample the simulation state history using the same factor
         state_history_array = state_history_array_full[::downsample_factor]
-        
+        state_history_array_init_downsample = state_history_array_init[::downsample_factor]
 
         states_sim_RSW_SPICE = ProcessingUtils.rotate_inertial_3_to_rsw(time_column, state_history_array[:,1:4], states_SPICE_with_time)
+       
+        states_init_sim_RSW_SPICE = ProcessingUtils.rotate_inertial_3_to_rsw(time_column, state_history_array_init_downsample[:,1:4], states_SPICE_with_time)
+       
         #states_sim_RSW_norm = ProcessingUtils.rotate_inertial_3_to_rsw(time_column, state_history_array[:,1:4], state_history_array_norm)
         #Diff wrt to SPICE
         # #---------------------------------------------------------------------------------------
         diff = (states_SPICE_RSW - states_sim_RSW_SPICE)/1e3
         diff_SPICE_RSW[key] = diff 
+
+        diff_init = (states_SPICE_RSW - states_init_sim_RSW_SPICE)/1e3
+        diff_init_SPICE_RSW[key] = diff_init 
+        time_column_initial[key] = time_column
+
         fig_RSW = FigUtils.Residuals_RSW(diff, time_column,type="difference",title=("RSW Difference SPICE - " + key))   
         fig_RSW.savefig(out_dir / ("RSW Diff SPICE - " + key + ".pdf"))
 
@@ -1899,140 +1776,189 @@ print("#########################################################################
 print("CREATE RMS PLOTS BASED ON REAL OBSERVATIONS")
 print("#######################################################################################################")
 
-rms_ra = {}
-rms_dec = {}
-for sim_name in simulations.keys():
-    best_iteration = simulations[sim_name]['best_iteration']
-    residuals = simulations[sim_name]['residual_history_arcseconds'][best_iteration]
-    residuals_ra = residuals[:,1]
-    residuals_dec = residuals[:,2]
-    rms_ra[sim_name] = np.sqrt(np.mean(residuals_ra**2))
-    rms_dec[sim_name] = np.sqrt(np.mean(residuals_dec**2))
+# rms_ra = {}
+# rms_dec = {}
+# for sim_name in simulations.keys():
+#     best_iteration = simulations[sim_name]['best_iteration']
+#     residuals = simulations[sim_name]['residual_history_arcseconds'][-1]
+#     residuals_ra = residuals[:,1]
+#     residuals_dec = residuals[:,2]
+#     rms_ra[sim_name] = np.sqrt(np.mean(residuals_ra**2))
+#     rms_dec[sim_name] = np.sqrt(np.mean(residuals_dec**2))
 
 
-def plot_rms_comparison(rms_ra, rms_dec):
-    """Plot RMS residuals for RA and Dec as a single combined metric."""
-    import matplotlib.pyplot as plt
+# def plot_rms_comparison(rms_ra, rms_dec):
+#     """Plot RMS residuals for RA and Dec as a single combined metric."""
+#     import matplotlib.pyplot as plt
     
-    sim_names = list(rms_ra.keys())
-    ra_values = np.array([rms_ra[name] for name in sim_names])
-    dec_values = np.array([rms_dec[name] for name in sim_names])
+#     sim_names = list(rms_ra.keys())
+#     ra_values = np.array([rms_ra[name] for name in sim_names])
+#     dec_values = np.array([rms_dec[name] for name in sim_names])
     
-    # Combine RA and Dec into single RMS metric
-    combined_rms = np.sqrt(ra_values**2 + dec_values**2)
+#     # Combine RA and Dec into single RMS metric
+#     combined_rms = np.sqrt(ra_values**2 + dec_values**2)
     
-    fig, ax = plt.subplots(figsize=(14, 6))
+#     fig, ax = plt.subplots(figsize=(14, 6))
     
-    x = np.arange(len(sim_names))
+#     x = np.arange(len(sim_names))
     
-    # Plot with lines and markers
-    ax.plot(x, combined_rms, 'o-', markersize=8, linewidth=2, label='RMS SPICE')
+#     # Plot with lines and markers
+#     ax.plot(x, combined_rms, 'o-', markersize=8, linewidth=2, label='RMS SPICE')
     
-    # Add value labels on points with more decimal places
-    for i, val in enumerate(combined_rms):
-        ax.text(i, val, f'{val:.4f}', ha='center', va='bottom', fontsize=9)
+#     # Add value labels on points with more decimal places
+#     for i, val in enumerate(combined_rms):
+#         ax.text(i, val, f'{val:.4f}', ha='center', va='bottom', fontsize=9)
     
-    ax.set_ylabel('RMS [arcseconds]', fontsize=12)
-    ax.set_xlabel('Estimation Scenario', fontsize=12)
-    ax.set_title('RMS Comparison Across Estimation Scenarios', fontsize=14)
-    ax.set_xticks(x)
-    ax.set_xticklabels(sim_names, rotation=45, ha='right')
-    ax.legend(loc='upper right')
-    ax.grid(True, alpha=0.3)
+#     ax.set_ylabel('RMS [arcseconds]', fontsize=12)
+#     ax.set_xlabel('Estimation Scenario', fontsize=12)
+#     ax.set_title('RMS Comparison Across Estimation Scenarios', fontsize=14)
+#     ax.set_xticks(x)
+#     ax.set_xticklabels(sim_names, rotation=45, ha='right')
+#     ax.legend(loc='upper right')
+#     ax.grid(True, alpha=0.3)
     
-    plt.tight_layout()
+#     plt.tight_layout()
     
-    return fig
+#     return fig
 
-fig = plot_rms_comparison(rms_ra, rms_dec)
-fig.savefig(out_dir / 'rms_comparison.pdf', dpi=300, bbox_inches='tight')
+# fig = plot_rms_comparison(rms_ra, rms_dec)
+# fig.savefig(out_dir / 'rms_comparison.pdf', dpi=300, bbox_inches='tight')
 
 print("#######################################################################################################")
 print("CREATE CORRELATION PLOTS & PARAMETER PLOTS")
 print("#######################################################################################################")
 
-best_parameter_update = {}
-rms_residuals = {}
-est_parameters_indicies = {}
+# states_SPICE_initial_epoch = spice.get_body_cartesian_state_at_epoch(
+#         target_body_name="Triton",
+#         observer_body_name="Neptune",
+#         reference_frame_name=global_frame_orientation,
+#         aberration_corrections="NONE",
+#         ephemeris_time=simulation_initial_epoch
+#     )
 
-#Create a dict of indicies for est parameters per simulation, as it is easier to work with this for later plots.
-for key in simulations.keys():
-        correlations = simulations[key]['correlations']
-        parameter_history = simulations[key]['parameter_history']
-        best_iteration = simulations[key]['best_iteration']
+# best_parameter_update = {}
+# rms_residuals = {}
+# est_parameters_indicies = {}
+
+# #Create a dict of indicies for est parameters per simulation, as it is easier to work with this for later plots.
+# for key in simulations.keys():
+#         correlations = simulations[key]['correlations']
+#         parameter_history = simulations[key]['parameter_history']
+#         best_iteration = simulations[key]['best_iteration']
        
-        best_parameter_update[key] = parameter_history[:,0] - parameter_history[:,best_iteration]
+#         best_parameter_update[key] = parameter_history[:,-1] 
+#         best_parameter_update[key][0:6] = states_SPICE_initial_epoch - parameter_history[0:6,-1]
+#         best_parameter_update[key][6:] = parameter_history[6:,0] - parameter_history[6:,-1]
 
-        est_parameters = simulations[key]['est_parameters']
+#         est_parameters = simulations[key]['est_parameters']
         
-        #rms_residuals[key] = np.sqrt(np.mean((simulations[key]['residuals_j2000']/1e3)**2)) 
+#         #rms_residuals[key] = np.sqrt(np.mean((simulations[key]['residuals_j2000']/1e3)**2)) 
 
 
-        # Generate parameter labels and units
-        labels = []
-        units = []
-        groups = []  # For coloring by parameter type
+#         # Generate parameter labels and units
+#         labels = []
+#         units = []
+#         groups = []  # For coloring by parameter type
 
-        for param in est_parameters:
-            if param == 'initial_state':
-                labels.extend(['x', 'y', 'z', 'vx', 'vy', 'vz'])
-                units.extend(['m', 'm', 'm', 'm/s', 'm/s', 'm/s'])
-                groups.extend(['position'] * 3 + ['velocity'] * 3)
+#         for param in est_parameters:
+#             if param == 'initial_state':
+#                 labels.extend(['x', 'y', 'z', 'vx', 'vy', 'vz'])
+#                 units.extend(['m', 'm', 'm', 'm/s', 'm/s', 'm/s'])
+#                 groups.extend(['position'] * 3 + ['velocity'] * 3)
             
-            elif param == 'iau_rotation_model_pole':
-                labels.extend(['α₀', 'δ₀'])
-                units.extend(['rad', 'rad'])
-                groups.extend(['pole_position'] * 2)
+#             elif param == 'iau_rotation_model_pole':
+#                 labels.extend(['α₀', 'δ₀'])
+#                 units.extend(['rad', 'rad'])
+#                 groups.extend(['pole_position'] * 2)
             
-            elif param == 'iau_rotation_model_pole_rate':
-                labels.extend(['α̇₀', 'δ̇₀'])
-                units.extend(['rad/s', 'rad/s'])
-                groups.extend(['pole_rate'] * 2)
+#             elif param == 'iau_rotation_model_pole_rate':
+#                 labels.extend(['α̇₀', 'δ̇₀'])
+#                 units.extend(['rad/s', 'rad/s'])
+#                 groups.extend(['pole_rate'] * 2)
             
-            elif param == 'iau_rotation_model_pole_librations':
-                labels.extend([[r'\alpha_{i}', r'\delta_{i}']])
-                units.extend(['rad', 'rad'])
-                groups.extend(['pole_lib'] * 2)
-                if 'pole_librations_deg2' in est_parameters:
-                    groups.extend(['pole_lib_deg2']*2)
+#             elif param == 'iau_rotation_model_pole_librations':
+#                 labels.extend([[r'\alpha_{i}', r'\delta_{i}']])
+#                 units.extend(['rad', 'rad'])
+#                 groups.extend(['pole_lib'] * 2)
+#                 if 'pole_librations_deg2' in est_parameters:
+#                     groups.extend(['pole_lib_deg2']*2)
 
-            elif param == 'GM_Neptune':
-                labels.append('GM_Nep')
-                units.append('km³/s²')
-                groups.append('gravity')
+#             elif param == 'GM_Neptune':
+#                 labels.append('GM_Nep')
+#                 units.append('km³/s²')
+#                 groups.append('gravity')
             
-            elif param == 'GM_Triton':
-                labels.append('GM_Tri')
-                units.append('km³/s²')
-                groups.append('gravity')
+#             elif param == 'GM_Triton':
+#                 labels.append('GM_Tri')
+#                 units.append('km³/s²')
+#                 groups.append('gravity')
             
-            elif param == 'spherical_harmonics':
-                # Hardcoded for C20 and C40 only
-                labels.extend(['C20', 'C40'])
-                units.extend(['[-]', '[-]'])
-                groups.extend(['spherical_harmonics', 'spherical_harmonics'])
+#             elif param == 'spherical_harmonics':
+#                 # Hardcoded for C20 and C40 only
+#                 labels.extend(['C20', 'C40'])
+#                 units.extend(['[-]', '[-]'])
+#                 groups.extend(['spherical_harmonics', 'spherical_harmonics'])
                 
-        est_parameters_indicies[key] = groups
-        # print("Plotting figs for: ",key)        
-        # fig = FigUtils.plot_correlation_matrix(correlations, est_parameters)
-        # fig.savefig(out_dir / 'correlations.pdf')
+#         est_parameters_indicies[key] = groups
+#         # print("Plotting figs for: ",key)        
+#         # fig = FigUtils.plot_correlation_matrix(correlations, est_parameters)
+#         # fig.savefig(out_dir / 'correlations.pdf')
 
-        # fig1 = FigUtils.plot_parameter_updates(best_parameter_update[key],  est_parameters)
-        # fig1.savefig(out_dir / "parameter_update.pdf")
+#         # fig1 = FigUtils.plot_parameter_updates(best_parameter_update[key],  est_parameters)
+#         # fig1.savefig(out_dir / "parameter_update.pdf")
         
-        # fig2 = FigUtils.plot_parameter_history(parameter_history, est_parameters, best_iteration=best_iteration)
-        # fig2.savefig(out_dir / "parameter_history.pdf")
-        # print("Next")
+#         # fig2 = FigUtils.plot_parameter_history(parameter_history, est_parameters, best_iteration=best_iteration)
+#         # fig2.savefig(out_dir / "parameter_history.pdf")
+#         # print("Next")
 
-fig_mag, fig_comp = FigUtils.plot_state_updates_combined(best_parameter_update)
-fig_mag.savefig(out_dir / "Best_Parameter_Update_magnitude.pdf")
-fig_comp.savefig(out_dir / "Best_Parameter_Update_components.pdf")
+# fig_mag, fig_comp = FigUtils.plot_state_updates_combined(best_parameter_update)
+# fig_mag.savefig(out_dir / "Best_Parameter_Update_magnitude.pdf")
+# fig_comp.savefig(out_dir / "Best_Parameter_Update_components.pdf")
 
-# print("#######################################################################################################")
-# print("CREATE INTERACTIVE PLOTS FOR WEIGHTS/RESIDAULS PER FILE")
-# print("#######################################################################################################")
 
 # weight_info = pd.read_csv('Results/PoleEstimationRealObservations/WeightTest_CASE1/initial_state_tf_weights/observation_weights.csv')
+print("#######################################################################################################")
+print("LOAD WEIGHT DATAFRAMES AND MERGE DICTS")
+print("#######################################################################################################")
+    # # Load simulations
+    # simulations = {
+    #     name: PostProc.load_npy_files(cfg["simulation_path"])
+    #     for name, cfg in VARIANTS.items()
+    # }
+
+
+
+#ADD WEIGHTS TO SIMS (IF THEY HAVE ANY)
+
+for name,cfg in VARIANTS.items():
+    simulations[name]['time_column'] = time_column
+    if name != 'Initial_State_No_Weights':
+        file_path = cfg['simulation_path'] + '/observation_weights.csv'
+        if Path(file_path).exists():
+            weight_info = pd.read_csv(file_path)
+            simulations[name]['weight_info'] = weight_info
+
+        else:
+            print(f"File not found: {file_path}")
+        # Append to the inner dict
+      
+
+#Merge other dicts
+for name in simulations.keys():
+    simulations[name]['rms_SPICE'] = rms_SPICE[name]
+    simulations[name]['diff_SPICE_RSW'] = diff_SPICE_RSW[name]
+    simulations[name]['diff_SPICE_RSW_initial'] = diff_init_SPICE_RSW[name]
+    simulations[name]['time_column_initial'] = time_column_initial[name]
+import pickle
+
+# Save the complete dict
+with open(out_dir / 'simulations.pkl', 'wb') as f:
+    pickle.dump(simulations, f)
+
+# file_path = 'Results/PoleEstimationRealObservations/EstimationWeightLoop/Analysis/simulations_with_weights.pkl'
+# # Load your simulations dict
+# with open(file_path, 'rb') as f:
+#     simulations = pickle.load(f)
 
 
 print("#######################################################################################################")
@@ -2051,7 +1977,7 @@ param_names = [
     'spherical_harmonics'  # 2
 ]
 
-param_lengths = [6, 1, 1, 2, 2, 2]  # updated for initial_state
+param_lengths = [6, 1, 1, 2, 2, 2]  
 
 # Flatten multi-element parameters into individual entries for the table
 param_labels = [
@@ -2160,6 +2086,8 @@ print("#########################################################################
 print("SIMULATE POLE MOVEMENT")
 print("#######################################################################################################")
 
+
+
 alpha_array_dict = {}
 delta_array_dict = {}
 for sim_name in best_parameter_update.keys():
@@ -2193,7 +2121,6 @@ for sim_name in best_parameter_update.keys():
         index = parameters_indicies.index('pole_lib')
         parameter_update[4:6] = estimated_values[index:index+2]
     if 'pole_lib_deg2' in parameters_indicies:
-
         index = parameters_indicies.index('pole_lib_deg2')
         parameter_update[6:8] = estimated_values[index:index+2]
     # alpha_0, delta_0
@@ -2208,20 +2135,29 @@ for sim_name in best_parameter_update.keys():
     #fig_RSW.savefig(out_dir / ("RSW Diff SPICE - " + key + ".pdf"))
 
 
-alpha_array_diff = alpha_array_dict['initial_state_only'] - alpha_array_dict['pole_pos']
-delta_array_diff = delta_array_dict['initial_state_only'] - delta_array_dict['pole_pos']
 
-fig = FigUtils.plot_pole_movement(time_column,alpha_array_diff,delta_array_diff,title=('Diff IAU 2015 initial vs fitted'))
-fig.savefig(out_dir / ("Diff IAU initial vs fitted pole pos only .pdf"))
+# file_path = 'Results/PoleEstimationRealObservations/UltimateAnalysis/simulations_with_weights.pkl'
 
-
-alpha_array_diff = alpha_array_dict['initial_state_only'] - alpha_array_dict['pole_pos_and_libration_amplitude']
-delta_array_diff = delta_array_dict['initial_state_only'] - delta_array_dict['pole_pos_and_libration_amplitude']
-
-fig = FigUtils.plot_pole_movement(time_column,alpha_array_diff,delta_array_diff,title=('Diff IAU 2015 initial vs fitted'))
-fig.savefig(out_dir / ("Diff IAU initial vs fitted pole pos and lib .pdf"))
+# with open(file_path, 'rb') as f:
+#     simulations = pickle.load(f)
 
 
+
+#Merge other dicts
+for name in simulations.keys():
+    simulations[name]['pole_alpha'] = alpha_array_dict[name]
+    simulations[name]['pole_delta'] = delta_array_dict[name]
+    simulations[name]['initial_state_diff_SPICE'] = best_parameter_update[name]
+with open(out_dir / 'simulations_with_weights.pkl', 'wb') as f:
+    pickle.dump(simulations, f)
 
 
 print("End.")
+
+
+
+##
+
+
+
+

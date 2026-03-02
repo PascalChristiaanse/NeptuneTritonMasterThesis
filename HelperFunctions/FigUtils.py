@@ -1618,42 +1618,45 @@ def plot_state_component_updates(best_parameter_update,
     
     # Create figure with 3x2 subplots
     fig, axes = plt.subplots(3, 2, figsize=figsize, sharex=True)
-    
     x = np.arange(len(keys))
     
     # Component data and labels
+    # Now organized as: Left column = Position (X, Y, Z), Right column = Velocity (Vx, Vy, Vz)
+    # Each row: (position_component, velocity_component)
     components = [
-        (x_vals, 'Δx [km]', 'X Position Update'),
-        (y_vals, 'Δy [km]', 'Y Position Update'),
-        (z_vals, 'Δz [km]', 'Z Position Update'),
-        (vx_vals, 'Δvx [km/s]', 'X Velocity Update'),
-        (vy_vals, 'Δvy [km/s]', 'Y Velocity Update'),
-        (vz_vals, 'Δvz [km/s]', 'Z Velocity Update')
+        # Row 0: X position (left), X velocity (right)
+        [(x_vals, 'Δx [km]', 'X Position Update', 'steelblue', 'o'),
+         (vx_vals, 'Δvx [km/s]', 'X Velocity Update', 'coral', 'o')],
+        # Row 1: Y position (left), Y velocity (right)
+        [(y_vals, 'Δy [km]', 'Y Position Update', 'steelblue', 's'),
+         (vy_vals, 'Δvy [km/s]', 'Y Velocity Update', 'coral', 's')],
+        # Row 2: Z position (left), Z velocity (right)
+        [(z_vals, 'Δz [km]', 'Z Position Update', 'steelblue', '^'),
+         (vz_vals, 'Δvz [km/s]', 'Z Velocity Update', 'coral', '^')],
     ]
     
-    colors = ['steelblue', 'steelblue', 'steelblue', 'coral', 'coral', 'coral']
-    markers = ['o', 's', '^', 'o', 's', '^']
-    
     # Plot each component
-    for idx, (ax, (vals, ylabel, subplot_title), color, marker) in enumerate(zip(axes.flat, components, colors, markers)):
-        ax.plot(x, vals, marker=marker, linewidth=2, markersize=8, 
-               color=color, alpha=0.8)
-        ax.set_ylabel(ylabel, fontsize=11, fontweight='bold')
-        ax.set_title(subplot_title, fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3, linestyle='--')
-        ax.axhline(0, color='black', linestyle='--', alpha=0.5, linewidth=1)
-        
-        # Add value labels
-        for i, v in enumerate(vals):
-            # Use appropriate precision based on magnitude
-            if idx < 3:  # Position components (km)
-                label = f'{v:.3f}'
-            else:  # Velocity components (km/s)
-                label = f'{v:.6f}'
+    for row_idx, row_components in enumerate(components):
+        for col_idx, (vals, ylabel, subplot_title, color, marker) in enumerate(row_components):
+            ax = axes[row_idx, col_idx]
             
-            va = 'bottom' if v >= 0 else 'top'
-            ax.text(i, v, label, ha='center', va=va, 
-                   fontsize=7, fontweight='bold')
+            ax.plot(x, vals, marker=marker, linewidth=2, markersize=8,
+                    color=color, alpha=0.8)
+            ax.set_ylabel(ylabel, fontsize=11, fontweight='bold')
+            ax.set_title(subplot_title, fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.axhline(0, color='black', linestyle='--', alpha=0.5, linewidth=1)
+            
+            # Add value labels
+            for i, v in enumerate(vals):
+                # Use appropriate precision based on column (left=position, right=velocity)
+                if col_idx == 0:  # Position components (km)
+                    label = f'{v:.3f}'
+                else:  # Velocity components (km/s)
+                    label = f'{v:.6f}'
+                va = 'bottom' if v >= 0 else 'top'
+                ax.text(i, v, label, ha='center', va=va,
+                        fontsize=7, fontweight='bold')
     
     # Set x-labels only on bottom row
     for ax in axes[2, :]:

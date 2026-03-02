@@ -5,7 +5,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
 import datetime as dt
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import csv
 
@@ -672,7 +672,8 @@ def compute_and_assign_weights(residuals: np.ndarray,
                                 observations,
                                 gap_threshold_hours: float = 4.0,
                                 min_obs_per_frame: int = 1,
-                                weight_type: str = 'hybrid') -> Tuple:
+                                weight_type: str = 'hybrid',
+                                min_sigma_arcsec: float = 0.01) -> Tuple:
     """
     Compute and assign weights to observation sets based on residuals.
     
@@ -710,54 +711,54 @@ def compute_and_assign_weights(residuals: np.ndarray,
     
     # Process each observation set
     for set_idx, obs_set in enumerate(all_observations_sets):
-        # Get reference point ID for this set
+    
         ref_point_id = obs_set.link_definition.link_end_id(links.receiver).reference_point
         
-        # Determine number of observations in this set
         n_obs = np.shape(obs_set.observation_times)[0]
         
         obs_times_obs = obs_set.observation_times
         obs_times_test = [t.to_float() for t in obs_times_obs]
 
-        # Extract residuals for this observation set
+        #Extract residuals (not from observation set)
         set_residuals = residuals[current_idx:current_idx + n_obs, :]
         times = set_residuals[:, 0]
         ra_residuals = set_residuals[:, 1]
         dec_residuals = set_residuals[:, 2]
         
       
-        # Test if times are consistent:
+        # Test if times are consistent between residuals and observation set
         diff = obs_times_test - times
         assert np.allclose(obs_times_test, times), \
             f"Times don't match! Max difference: {np.max(np.abs(diff))}"
 
 
-        # 1. Compute global RMSE weights (constant for entire set)
+        #------------------------------------------------------------
+        # COMPUTE ID WEIGHTS (PER FILE)
+        #------------------------------------------------------------
         ra_rmse_global = np.sqrt(np.mean(ra_residuals**2))
         dec_rmse_global = np.sqrt(np.mean(dec_residuals**2))
         
         # Clip values according to min_sigma value
-        min_sigma_arcsec = 0.01 # 10 mas minimum rmse
-        min_sigma_rad = 0.01 / (3600 * 180 / np.pi) # 10mas in rad
+        #min_sigma_arcsec = 0.01 # 10 mas minimum rmse
+        min_sigma_rad = min_sigma_arcsec / (3600 * 180 / np.pi) # 10mas in rad
         
 
-        if np.any(ra_rmse_global < min_sigma_rad):
+        if ra_rmse_global < min_sigma_rad:
             n_clipped = np.sum(ra_rmse_global < min_sigma_rad)
+            print(f"RA ID RMSE bellow minmimum sigma {min_sigma_arcsec} [arcseconds] for {ref_point_id}")
             #warnings.warn(f"RA ID RMSE values were below minimum sigma and were clipped for {ref_point_id}")
             ra_rmse_global = min_sigma_rad
-        if np.any(dec_rmse_global < min_sigma_rad):
+        if dec_rmse_global < min_sigma_rad:
             n_clipped = np.sum(dec_rmse_global < min_sigma_rad)
-            #warnings.warn(f"DEC ID RMSE values were below minimum sigma and were clipped for {ref_point_id}")
+            print(f"DEC ID RMSE bellow minmimum sigma {min_sigma_arcsec} [arcseconds] for {ref_point_id}")
             dec_rmse_global = min_sigma_rad       
 
-        # ra_rmse_global = ra_rmse_global.clip(lower=min_sigma_rad)
-        # dec_rmse_global = dec_rmse_global.clip(lower=min_sigma_rad)
-
-
-        weight_ra_global = 1.0 / (ra_rmse_global**2) if ra_rmse_global > 0 else 1.0
-        weight_dec_global = 1.0 / (dec_rmse_global**2) if dec_rmse_global > 0 else 1.0
+        weight_ra_global = 1.0 / (ra_rmse_global**2) #if ra_rmse_global > 0 else 1.0
+        weight_dec_global = 1.0 / (dec_rmse_global**2) #if dec_rmse_global > 0 else 1.0
         
-        # 2. Split into timeframes based on gaps
+        #------------------------------------------------------------
+        # PER TIMEFRAME RMSE AND WEIGHTS (New ID Weight version too)
+        #------------------------------------------------------------
         timeframes = split_observations_into_timeframes(
             times, 
             gap_threshold_hours=gap_threshold_hours,
@@ -769,7 +770,18 @@ def compute_and_assign_weights(residuals: np.ndarray,
         # 3. Compute local (per-timeframe) weights
         weight_ra_local = np.zeros(n_obs)
         weight_dec_local = np.zeros(n_obs)
-        
+
+        # 3. RMSE per timeframe * n_obs_tf (descaled)
+        tf_rmse_descaled_ra = np.zeros(n_obs)
+        tf_rmse_descaled_dec = np.zeros(n_obs)
+        tf_rmse_descaled_ra_2 = np.zeros(n_timeframes)
+        tf_rmse_descaled_dec_2 = np.zeros(n_timeframes)
+
+
+        # Clipped frame ids
+        clipped_ids_ra = {}
+        clipped_ids_dec = {}
+
         for frame_idx in range(n_timeframes):
             # Find observations in this timeframe
             mask = (timeframes == frame_idx)
@@ -779,28 +791,64 @@ def compute_and_assign_weights(residuals: np.ndarray,
                 ra_rmse_frame = np.sqrt(np.mean(ra_residuals[mask]**2))
                 dec_rmse_frame = np.sqrt(np.mean(dec_residuals[mask]**2))
 
-                #Clip values according to min_sigma_rad
-                if np.any(ra_rmse_frame < min_sigma_rad):
-                    #warnings.warn(f"RA Timeframe RMSE values were below minimum sigma and were clipped for {ref_point_id} frame id {frame_idx}")
-                    ra_rmse_frame = min_sigma_rad
-                if np.any(dec_rmse_frame < min_sigma_rad):
-                    #warnings.warn(f"DEC Timeframe RMSE values were below minimum sigma and were clipped {ref_point_id} frame id {frame_idx}")
-                    dec_rmse_frame = min_sigma_rad
- 
 
                 n_obs_timeframe = len(ra_residuals[mask])
 
+
+                # Clip values according to min_sigma_rad
+                if ra_rmse_frame < min_sigma_rad:
+                    ra_rmse_frame = min_sigma_rad
+
+                    clipped_ids_ra[frame_idx] = n_obs_timeframe
+                    
+                if dec_rmse_frame < min_sigma_rad:
+                    dec_rmse_frame = min_sigma_rad
+                    
+                    clipped_ids_dec[frame_idx] = n_obs_timeframe
+
                 # Assign weights (inverse variance)
-                weight_ra_local[mask] = (1.0 / (ra_rmse_frame**2))/n_obs_timeframe if ra_rmse_frame > 0 else 10**3 #Very bad weight
-                weight_dec_local[mask] = (1.0 / (dec_rmse_frame**2))/n_obs_timeframe if dec_rmse_frame > 0 else 10**3 #Very bad weight
+                weight_ra_local[mask] = (1.0 / (ra_rmse_frame**2))/n_obs_timeframe #if ra_rmse_frame > 0 else 10**3 #Very bad weight
+                weight_dec_local[mask] = (1.0 / (dec_rmse_frame**2))/n_obs_timeframe #if dec_rmse_frame > 0 else 10**3 #Very bad weight
         
-        # 4. Compute hybrid weights (geometric mean)
-        # You can adjust this combination strategy
+                # New ID (per file) weighting strategy where each timeframe is
+                tf_rmse_descaled_ra[mask] = ra_rmse_frame*np.sqrt(n_obs_timeframe)
+                tf_rmse_descaled_dec[mask] = dec_rmse_frame*np.sqrt(n_obs_timeframe)
+
+                tf_rmse_descaled_ra_2[frame_idx] = ra_rmse_frame*np.sqrt(n_obs_timeframe)
+                tf_rmse_descaled_dec_2[frame_idx] = dec_rmse_frame*np.sqrt(n_obs_timeframe)
+
+        print(f"For timeframe rmse, for id: {ref_point_id}, {sum(clipped_ids_ra.values())} RA obs and {sum(clipped_ids_dec.values())} DEC obs are clipped out of {n_obs} total.")    
+
+        # COMPUTE ID WEIGHT NEW OPTION 1
+        ra_rmse_id_new_1 = np.sqrt(np.mean(tf_rmse_descaled_ra**2))
+        dec_rmse_id_new_1 = np.sqrt(np.mean(tf_rmse_descaled_dec**2))
+        
+        weight_ra_id_new_1 =  1/ra_rmse_id_new_1**2
+        weight_dec_id_new_1 = 1/dec_rmse_id_new_1**2
+
+        ra_rmse_id_new_2 = np.sqrt(np.mean(tf_rmse_descaled_ra_2**2))
+        dec_rmse_id_new_2 = np.sqrt(np.mean(tf_rmse_descaled_dec_2**2))
+
+        weight_ra_id_new_2 = 1/ra_rmse_id_new_2**2
+        weight_dec_id_new_2 = 1/dec_rmse_id_new_2**2
+
+
+        # COMPUTE HYBRID WEIGHTS
         weight_ra_hybrid = np.sqrt(weight_ra_global * weight_ra_local)
         weight_dec_hybrid = np.sqrt(weight_dec_global * weight_dec_local)
         
         weight_ra_hybrid_old = (weight_ra_global + weight_ra_local)/2
         weight_dec_hybrid_old = (weight_dec_global + weight_dec_local)/2
+
+        #NEW HYBRID WEIGHTS
+
+        weight_ra_hybrid_new_id = np.sqrt(weight_ra_id_new_2 * weight_ra_local)
+        weight_dec_hybrid_new_id = np.sqrt(weight_dec_id_new_2 * weight_dec_local)
+        
+        weight_ra_hybrid_old_new_id = (weight_ra_id_new_2 + weight_ra_local)/2
+        weight_dec_hybrid_old_new_id = (weight_dec_id_new_2 + weight_dec_local)/2
+        
+
 
         # Determine which weights to use based on weight_type
         if weight_type == 'hybrid':
@@ -809,12 +857,24 @@ def compute_and_assign_weights(residuals: np.ndarray,
         elif weight_type == 'hybrid_old':
             weight_ra_selected = weight_ra_hybrid_old
             weight_dec_selected = weight_dec_hybrid_old
-        elif weight_type == 'id':
-            weight_ra_selected = np.full(n_obs, weight_ra_global)  # Broadcast to array
-            weight_dec_selected = np.full(n_obs, weight_dec_global)
+        elif weight_type =='hybrid_new_id':
+            weight_ra_selected = weight_ra_hybrid_new_id
+            weight_dec_selected = weight_dec_hybrid_new_id
+        elif weight_type == 'hybrid_old_new_id':
+            weight_ra_selected = weight_ra_hybrid_old_new_id
+            weight_dec_selected = weight_dec_hybrid_old_new_id
         elif weight_type == 'timeframe':
             weight_ra_selected = weight_ra_local
             weight_dec_selected = weight_dec_local
+        elif weight_type == 'id':
+            weight_ra_selected = np.full(n_obs, weight_ra_global)  # Broadcast to array
+            weight_dec_selected = np.full(n_obs, weight_dec_global)
+        elif weight_type == 'id_new_1':
+            weight_ra_selected = np.full(n_obs,weight_ra_id_new_1)
+            weight_dec_selected = np.full(n_obs,weight_dec_id_new_1)
+        elif weight_type == 'id_new_2':
+            weight_ra_selected = np.full(n_obs,weight_ra_id_new_2)
+            weight_dec_selected = np.full(n_obs,weight_dec_id_new_2)    
         else:
             raise ValueError(f"Unknown weight_type: {weight_type}")
         
@@ -895,3 +955,197 @@ def split_observations_into_timeframes(times: np.ndarray,
     
     return timeframes
 
+
+#---------------------------------------------------------------------------------------------------------------------------
+# MANUAL BIAS ASSIGNMENT
+#---------------------------------------------------------------------------------------------------------------------------
+
+import tudatpy.estimation as estimation
+from tudatpy.estimation import observations_setup 
+
+
+def apply_dec_bias_to_observations(
+    observations,
+    observations_settings,
+    system_of_bodies,
+    bias_dict_arcsec
+):
+    """
+    Apply DEC bias to observation sets based on reference point IDs.
+
+    Parameters
+    ----------
+    observations : ObservationCollection
+    observations_settings : list
+    system_of_bodies : SystemOfBodies
+    bias_dict_arcsec : dict
+        {ref_point_id: bias_arcsec}
+
+    Returns
+    -------
+    observations : ObservationCollection (modified)
+    applied_bias_rad : dict
+        {ref_point_id: bias_rad}
+    """
+
+    # --- gather all sets ---
+    sets = observations.sorted_observation_sets
+
+    all_sets = []
+    for _, inner_dict in sets.items():
+        for _, obs_list in inner_dict.items():
+            all_sets.extend(obs_list)
+
+    applied_bias_rad = {}
+
+    # --- loop sets ---
+    for obs_set in all_sets:
+
+        ref_id = obs_set.link_definition.link_end_id(
+            links.receiver
+        ).reference_point
+
+        if ref_id not in bias_dict_arcsec:
+            continue
+
+        # convert arcsec -> rad
+        bias_rad = np.deg2rad(bias_dict_arcsec[ref_id] / 3600.0)
+
+        obs = obs_set.concatenated_observations.copy()
+
+        # apply to DEC
+        obs[1::2] += bias_rad
+
+        obs_set.set_observations(obs)
+
+        applied_bias_rad[ref_id] = bias_rad
+
+
+    # --- create simulators ---
+    observation_simulators = observations_setup.observations_simulation_settings.create_observation_simulators(
+    observations_settings,
+    system_of_bodies
+    )
+
+    # --- recompute residuals ---
+    estimation.observations.compute_residuals_and_dependent_variables(
+        observations,
+        observation_simulators,
+        system_of_bodies
+        )
+
+    return observations, applied_bias_rad
+
+def PlotResidualBiased(times_sec,residuals_old,residuals_new):
+        # --- constants ---
+    RAD_TO_MAS = 206264806.247
+    J2000 = datetime(2000, 1, 1, 12, 0, 0)
+
+    # --- times ---
+    #times_sec = np.array([t.to_float() for t in obs_set.observation_times])
+    times_dt = [J2000 + timedelta(seconds=float(s)) for s in times_sec]
+
+    # --- residuals to mas ---
+    # ra_old  = residuals_old[:, 0] * RAD_TO_MAS
+    # dec_old = residuals_old[:, 1] * RAD_TO_MAS
+    # ra_new  = residuals_new[:, 0] * RAD_TO_MAS
+    # dec_new = residuals_new[:, 1] * RAD_TO_MAS
+
+    ra_old  = residuals_old[0::2] * RAD_TO_MAS
+    dec_old = residuals_old[1::2] * RAD_TO_MAS
+
+    ra_new  = residuals_new[0::2] * RAD_TO_MAS
+    dec_new = residuals_new[1::2] * RAD_TO_MAS
+    
+    # --- figure layout ---
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+    # --- scatter RA ---
+    axes[0, 0].scatter(times_dt, ra_old, s=5, label="Old")
+    axes[0, 0].scatter(times_dt, ra_new, s=5, label="New")
+    axes[0, 0].set_ylabel("RA residual [mas]")
+    axes[0, 0].legend()
+    axes[0, 0].grid(True)
+
+    # --- scatter DEC ---
+    axes[1, 0].scatter(times_dt, dec_old, s=5, label="Old")
+    axes[1, 0].scatter(times_dt, dec_new, s=5, label="New")
+    axes[1, 0].set_ylabel("DEC residual [mas]")
+    axes[1, 0].set_xlabel("Datetime UTC")
+    axes[1, 0].legend()
+    axes[1, 0].grid(True)
+
+    # --- histogram RA ---
+    axes[0, 1].hist(ra_old, bins=50, alpha=0.5, label="Old")
+    axes[0, 1].hist(ra_new, bins=50, alpha=0.5, label="New")
+    axes[0, 1].set_xlabel("RA residual [mas]")
+    axes[0, 1].set_ylabel("Count")
+    axes[0, 1].legend()
+    axes[0, 1].grid(True)
+
+    # --- histogram DEC ---
+    axes[1, 1].hist(dec_old, bins=50, alpha=0.5, label="Old")
+    axes[1, 1].hist(dec_new, bins=50, alpha=0.5, label="New")
+    axes[1, 1].set_xlabel("DEC residual [mas]")
+    axes[1, 1].set_ylabel("Count")
+    axes[1, 1].legend()
+    axes[1, 1].grid(True)
+
+    plt.tight_layout()
+
+    # --- save only ---
+    #fig.savefig(out_dir / "Manual_Biased.pdf")
+    return fig
+
+
+
+    # # Extract observation sets
+    # sets = observations.sorted_observation_sets
+    # ObservableType = list(sets.keys())[0]
+    
+    # all_observations_sets = []
+    # for observable_type, inner_dict in sets.items():
+    #     for link_end_id,     observation_list in inner_dict.items():
+    #         all_observations_sets.extend(observation_list)
+    
+    # # Prepare data structures for results
+    # weights_data = []
+    # current_idx = 0
+    
+    # ref_point_ids = {}
+    # # Process each observation set
+    # for set_idx, obs_set in enumerate(all_observations_sets):
+    #     # Get reference point ID for this set
+    #     ref_point_ids[set_idx] = obs_set.link_definition.link_end_id(links.receiver).reference_point
+
+    # obs_set = all_observations_sets[17]
+    
+    # obs_old = obs_set.concatenated_observations
+    # residuals_old = np.array(obs_set.residuals)
+
+
+    # obs = obs_set.concatenated_observations.copy()
+
+    # bias_rad = -np.deg2rad(0.2 / 3600.0)  # 210 marcsec example
+
+    # # DEC entries are every second element
+    # obs[1::2] += bias_rad
+
+
+    # obs_set.set_observations(obs)
+
+    # import tudatpy.estimation as estimation
+    # from tudatpy.estimation import observations_setup 
+
+    # observation_simulators = observations_setup.observations_simulation_settings.create_observation_simulators(
+    #     observations_settings,
+    #     system_of_bodies
+    #     )
+
+    # estimation.observations.compute_residuals_and_dependent_variables(
+    #     observations,
+    #     observation_simulators,
+    #     system_of_bodies
+    #     )
+
+    # residuals_new = np.array(obs_set.residuals)

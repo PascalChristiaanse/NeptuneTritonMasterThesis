@@ -144,7 +144,7 @@ def main(settings: dict,out_dir,
         observations_folder_path = settings["obs"]["observations_folder_path"]
         
         #If observations are already loaded and weights are assigned do not redo it.
-        if settings['obs']['use_loaded_obs'] == True and settings['obs']['use_old_obs_func'] == False:
+        if settings['obs']['use_loaded_obs'] == True:
             #CREATE EARTH BASED STATIONS EARTH 
             #---------------------------------------------------------------------------------------------------------------------------------------------------
             if observations != None:
@@ -196,8 +196,25 @@ def main(settings: dict,out_dir,
             observations_folder_path,
             system_of_bodies,
             files,
-            Residual_filtering = settings["obs"]["residual_filtering"])
+            Residual_filtering = settings["obs"]["residual_filtering"]
+            )
 
+
+            bias_dict = {
+            "689_nm0077": -0.2,  # arcsec
+            }
+
+            # observations and observations_biased are pointing in the same memory block
+            # therefore observations are overwritten !!
+            observations, applied = ObsFunc.apply_dec_bias_to_observations(
+                observations,
+                observations_settings,
+                system_of_bodies,
+                bias_dict
+            )
+
+            settings["obs"]["manual_dec_bias"] = bias_dict
+            
 
             #Always save the rejected epochs for analysis
             #--------------------------------------------------------------
@@ -236,7 +253,7 @@ def main(settings: dict,out_dir,
     ##############################################################################################
 
 
-    estimation_output, original_parameter_vector, parameters_desc = PropFuncs.Create_Estimation_Output(settings,
+    estimation_output, original_parameter_vector, parameters_desc,covariances = PropFuncs.Create_Estimation_Output(settings,
     system_of_bodies,propagator_settings,observations_settings,observations)
 
     print("END OF ESTIMATION")
@@ -386,14 +403,36 @@ def main(settings: dict,out_dir,
         #fig_sim_RSW_abs.savefig(out_dir / "RSW_abs_final_Sim.pdf")
         #fig_SPICE_RSW_abs.savefig(out_dir / "RSW_abs_SPICE.pdf")
         
-        
-        
-        
         fig_Cartesian.savefig(out_dir / "Cartesian_Difference_SPICE.pdf")
         fig_estimation_residuals.savefig(out_dir / "Estimation_residual.pdf")
         fig_SPICE_residuals.savefig(out_dir / "SPICE_residual.pdf")
         #fig_RA.savefig(out_dir / "RA_res.pdf")
         #fig_DEC.savefig(out_dir / "DEC_res.pdf")
+
+
+        ##############################################################################################
+        # EXTRACT RSW FORMAL ERRORS FROM COVARIANCES
+        ##############################################################################################
+
+        Covariances_array_RSW = ProcessingUtils.rotate_covariance_inertial_to_rsw(
+                time_column, 
+                covariances,
+                states_SPICE_with_time
+        )
+
+        diag = np.diagonal(Covariances_array_RSW, axis1=1, axis2=2)
+        formal_errors_RSW = np.sqrt(diag[:,0:3])/1e3
+        
+        fig_RSW = FigUtils.Residuals_RSW(formal_errors_RSW, time_column,type="difference",title=("RSW Formal Errors "))   
+        
+
+        fig_RSW.savefig(out_dir / ("Formal_Errors_Propagated_RSW.pdf"))
+        np.save(out_dir / "covariances_array_rsw.npy",Covariances_array_RSW)
+        np.save(out_dir / "formal_errors_RSW_km.npy",formal_errors_RSW)
+        ##############################################################################################
+        # SAVE OTHER FILES
+        ##############################################################################################
+
 
         arr = np.stack(residual_history_arcseconds, axis=0)   # shape ??
         np.save(out_dir / "residual_history_arcseconds.npy", arr)
@@ -561,15 +600,27 @@ def main(settings: dict,out_dir,
 
         np.save(out_dir / "state_history_array_full.npy",state_history_array_full)
 
-    #Remove Pandas Data frame of the weights from the settings to be able to save and reduce file size
-    settings['obs'].pop('weights', None)
+    import copy
 
-    #Convert initial state to this
-    if 'initial_state' in settings['prop'] and np.shape(settings['prop']['initial_state']) != ():
-        settings['prop']['initial_state'] = settings['prop']['initial_state'].tolist()
+    settings_copy = copy.deepcopy(settings)
+    
+    #settings_copy['prop']['initial_covariance'] = settings_copy['prop']['initial_covariance'].tolist()
+    #settings["prop"]["initial_state_uncertanity"] = settings["prop"]["initial_state_uncertanity"].tolist()
+    settings_copy['obs'].pop('weights', None)
+    if 'initial_state' in settings['prop']:
+        settings_copy["prop"]["initial_state"] = settings_copy["prop"]["initial_state"].tolist()
+    if 'initial_Pole_Pos' in settings_copy['env']:
+        settings_copy['env']['initial_Pole_Pos'] = settings_copy['env']['initial_Pole_Pos'].tolist()
+    if 'initial_Pole_lib_deg1' in settings_copy['env']:
+        settings_copy['env']['initial_Pole_lib_deg1'] = settings_copy['env']['initial_Pole_lib_deg1'].tolist()
     #Save yaml settings file
     with open(out_dir / "settings.yaml", "w", encoding="utf-8") as f:
-        yaml.safe_dump(settings, f, sort_keys=False, allow_unicode=True)
+        yaml.safe_dump(settings_copy, f, sort_keys=False, allow_unicode=True)
+    
+
+    # Close all figures
+    plt.close('all')
+
 
     return estimation_output,observations,observations_settings,body_settings,system_of_bodies 
 #---------------------------------------------------------------------------------------------------
