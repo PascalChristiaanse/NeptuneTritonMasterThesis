@@ -502,7 +502,7 @@ def Create_Estimation_Output(settings,system_of_bodies,propagator_settings,pseud
             # Example: uncertainty in pole right ascension and declination
             for idx_range in pole_indices:
                 for i in range(idx_range[0], idx_range[0]+idx_range[1]):
-                    inverse_apriori_cov[i, i] = 1 / (5 * np.pi/180)**2  # Inverse of 5 degree uncertainty
+                    inverse_apriori_cov[i, i] = 1 / (0.2 * np.pi/180)**2  # Inverse of 0.2 degree uncertainty
         
         if settings['est']['a_priori_lib'] == True:
             libration_indices = parameters_to_estimate.indices_for_parameter_type(pole_lib_identifier)
@@ -511,8 +511,8 @@ def Create_Estimation_Output(settings,system_of_bodies,propagator_settings,pseud
                 # Apply constraints to libration amplitudes
                 # Conservative uncertainties: [alpha_1, delta_1]
                 libration_sigmas = [0.003, 0.002]
-                libration_sigmas[0] = np.abs(0.01*3)  # alpha_1 ~300% of 0.011 rad 
-                libration_sigmas[1] = np.abs(0.01*3)  # delta_1 ~300% of 0.008 rad 
+                libration_sigmas[0] = (2 * np.pi/180)  # now 2 deg, prev alpha_1 ~300% of 0.011 rad,  0.01*3
+                libration_sigmas[1] = (2 * np.pi/180)  # now 2 deg, prev delta_1 ~300% of 0.008 rad,  0.01*3
                 
             if settings['est']['a_priori_lib_deg'] == 2:
                 libration_sigmas = [0.003, 0.002, 2e-5, 1e-5]

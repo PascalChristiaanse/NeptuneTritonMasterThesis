@@ -133,10 +133,10 @@ settings_prop['fixed_step_size'] = 60*60 # 60 minutes
 with open("file_names.json", "r") as f:
     file_names_loaded = json.load(f)
 
-weights = pd.read_csv(
-        "Results/PoleEstimationRealObservations/LoopTest2/initial_state_only/0/summary.txt", #Results/BetterFigs/AllModernObservations/PostProcessing/First/weights.txt
-        sep="\t",
-        index_col="id")
+# weights = pd.read_csv(
+#         "Results/PoleEstimationRealObservations/LoopTest2/initial_state_only/0/summary.txt", #Results/BetterFigs/AllModernObservations/PostProcessing/First/weights.txt
+#         sep="\t",
+#         index_col="id")
 
 settings_obs = dict()
 settings_obs["mode"] = ["pos"]
@@ -246,11 +246,14 @@ for k in kernel_paths:
 
 out_dir = make_timestamped_folder("Results/EstimationTemplatesTest")
 
-#VARIANTS = EstimationTemplates.CASE1_Manual_Bias(settings,out_dir)
+#VARIANTS = EstimationTemplates.SimObs_ParameterAnalysis(settings,out_dir,runSim=False)
+
+#VARIANTS = EstimationTemplates.CASE1_Manual_Bias(settings,out_dir,runSim=False)
 
 
 VARIANTS = EstimationTemplates.WeightSchemeAnalysis(settings,out_dir,runSim=False)
 
+#VARIANTS = EstimationTemplates.WeightLoop(settings,out_dir,runSim=False)#,path_file="")
 
   # Load simulations
 simulations = {
@@ -260,9 +263,9 @@ simulations = {
 
 
 
-
-# for name, cfg in VARIANTS.items():
-#     simulations[name]["est_parameters"] = cfg["est_parameters"]
+ 
+for name, cfg in VARIANTS.items():
+    simulations[name]["est_parameters"] = cfg["est_parameters"]
 
 
 
@@ -1584,7 +1587,20 @@ if RSW_RMS_PLOTS == True:
         fig_RSW.savefig(out_dir / ("RSW Diff SPICE - " + key + ".pdf"))
 
         # unweighted scalar RMS wrt SPICE
-        rms_SPICE[key] = np.sqrt(np.mean(diff**2)) 
+        rms_SPICE[key] = np.sqrt(np.mean(diff**2))
+
+        # RSW-frame initial state parameter history (pos/vel rows 0:5 only)
+        # All iterations share the same epoch t0, so we pass a constant epoch array.
+        if 'parameter_history' in simulations[key]:
+            ph = simulations[key]['parameter_history']
+            n_iter = ph.shape[1]
+            epochs_t0 = np.full(n_iter, simulation_initial_epoch)
+            # rotate_inertial_6_to_rsw expects (N, 6), returns (N, 6)
+            ph_6_rsw = ProcessingUtils.rotate_inertial_6_to_rsw(
+                epochs_t0, ph[0:6, :].T, states_SPICE_with_time)   # (n_iter, 6)
+            ph_rsw = ph.astype(float).copy()
+            ph_rsw[0:6, :] = ph_6_rsw.T                            # back to (6, n_iter)
+            simulations[key]['parameter_history_RSW'] = ph_rsw
 
 
 

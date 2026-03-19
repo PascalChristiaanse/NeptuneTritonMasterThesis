@@ -62,25 +62,25 @@ import EstimationAnalysisTemplates as EstimationTemplates
 matplotlib.use("PDF")  #tkagg
 
 
-def CASE1_Manual_Bias(settings,out_dir,file_path=""):
+def CASE1_Manual_Bias(settings,out_dir,file_path="",runSim=True):
     # ULTIMATE ANALYSIS with manual bias
     VARIANTS = {
         "IAUPole_initial_state_no_weights": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_initial_state_no_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/IAUPole_initial_state_no_weights",
             'est_parameters': ['initial_state'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': False,
             'use_apriori_cov': False,
         },
         "IAUPole_initial_state": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_initial_state",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/IAUPole_initial_state",
             'est_parameters': ['initial_state'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
             'use_apriori_cov': False,
         },
         "IAUPole_pole_pos_cov": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_pole_pos_cov",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/IAUPole_pole_pos_cov",
             'est_parameters': ['initial_state','iau_rotation_model_pole'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
@@ -88,7 +88,7 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
             'pole_pos_cov': True 
         },
         "IAUPole_pole_lib_cov": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_pole_lib_cov",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/IAUPole_pole_lib_cov",
             'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
@@ -97,7 +97,7 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
             'pole_lib_cov': True,
         },
         "IAUPole_pole_pos_cov_pole_lib_cov": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/IAUPole_pole_pos_cov_pole_lib_cov",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/IAUPole_pole_pos_cov_pole_lib_cov",
             'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
@@ -106,21 +106,21 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
             'pole_lib_cov': True,
         },
         "SimPole_initial_state_no_weights": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_initial_state_no_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_initial_state_no_weights",
             'est_parameters': ['initial_state'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': False,
             'use_apriori_cov': False,
         },
         "SimPole_initial_state": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_initial_state",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_initial_state",
             'est_parameters': ['initial_state'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
             'use_apriori_cov': False,
         },
         "SimPole_pole_pos_cov": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_pole_pos_cov",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_pos_cov",
             'est_parameters': ['initial_state','iau_rotation_model_pole'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
@@ -128,7 +128,7 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
             'pole_pos_cov': True 
         },
         "SimPole_pole_lib_cov": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_pole_lib_cov",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_lib_cov",
             'est_parameters': ['initial_state','iau_rotation_model_pole_librations'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
@@ -137,7 +137,7 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
             'pole_lib_cov': True,
         },
         "SimPole_pole_pos_cov_pole_lib_cov": {
-            "simulation_path": "Results/ManualBias/CASE1_Manual_Bias/SimPole_pole_pos_cov_pole_lib_cov",
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_pos_cov_pole_lib_cov",
             'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations'],
             'Neptune_rot_model_type': 'IAU2015',
             'use_weights': True,
@@ -147,15 +147,17 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
         },
     }
 
+    settings['obs']['use_old_obs_func'] = False #depricated function do not use !!
+    
     out_dir = out_dir / "CASE1_Manual_Bias"
     out_dir.mkdir(parents=True, exist_ok=True)
     #------------------------
-    fitted_pole_pos_lib_sim = PostProc.load_npy_files("Results/EstimatedParametersSimulatedObservations/PoleLibrations/pole_pos_and_libration_amplitude")
+    fitted_pole_pos_lib_sim = PostProc.load_npy_files("Results/EstimatedParametersSimulatedObservations/NewFinal/pole_pos_lib_IAU")
 
     settings['prop']['initial_state'] =  fitted_pole_pos_lib_sim['parameter_history'][0:6,-1]    
 
     pole_params_SimPole = fitted_pole_pos_lib_sim['parameter_history'][6:,-1]
-    runSim = True
+    #runSim = True
     if runSim == True :
         #Load observations with weights
         print("#######################################################################################################")
@@ -227,11 +229,11 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
         # EXTRACT RESIDUALS FROM INITIAL SIM 
         # AND COMPUTE/ASSIGN WEIGHTS FROM THEM
         observations_SimPole, weights_info_SimPole = ObsFunc.compute_and_assign_weights(
-            residuals=residuals,
+            residuals=residuals_new,
             observations=observations_biased,
             gap_threshold_hours=4.0,
             min_obs_per_frame=1,
-            weight_type = 'hybrid'
+            weight_type = 'id_new_2' #per file scaled weights 
         )
 
         print("#######################################################################################################")
@@ -308,7 +310,7 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
             observations=observations_biased,
             gap_threshold_hours=4.0,
             min_obs_per_frame=1,
-            weight_type = 'hybrid'
+            weight_type = 'id_new_2' #per file scaled weights
         )
 
         print("#######################################################################################################")
@@ -395,7 +397,7 @@ def CASE1_Manual_Bias(settings,out_dir,file_path=""):
     return VARIANTS
 
 
-def SimObs_ParameterAnalysis(settings,out_dir,folder_name=""):
+def SimObs_ParameterAnalysis(settings,out_dir,folder_name="",runSim=True):
     # #SIMULATED OBSERVATIONS
     VARIANTS = {
         "initial_state_IAU": {
@@ -468,6 +470,13 @@ def SimObs_ParameterAnalysis(settings,out_dir,folder_name=""):
             'use_weights': False,
             'use_apriori_cov': False,
         },
+        "pole_pos_lib_IAU": {
+            "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_pos_lib_IAU",
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole','iau_rotation_model_pole_librations'],
+            'Neptune_rot_model_type': 'IAU2015',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
         "pole_full_IAU": {
             "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_full_IAU",
             'est_parameters': ['initial_state', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate', 'iau_rotation_model_pole_librations'],
@@ -491,21 +500,36 @@ def SimObs_ParameterAnalysis(settings,out_dir,folder_name=""):
         },
         "pole_lib1_Jacobson": {
             "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_lib1_Jacobson",
-            'est_parameters': ['initial_state', 'pole_librations_deg2'],
+            'est_parameters': ['initial_state','iau_rotation_model_pole_librations', 'pole_librations_deg1'],
             'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
             'use_weights': False,
             'use_apriori_cov': False,
         },
         "pole_lib2_Jacobson": {
             "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_lib2_Jacobson",
-            'est_parameters': ['initial_state', 'pole_librations_deg2'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations','pole_librations_deg2'],
+            'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+
+        "pole_pos_lib1_Jacobson": {
+            "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_pos_lib1_Jacobson",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations', 'pole_librations_deg1'],
+            'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
+            'use_weights': False,
+            'use_apriori_cov': False,
+        },
+        "pole_pos_lib2_Jacobson": {
+            "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_pos_lib2_Jacobson",
+            'est_parameters': ['initial_state','iau_rotation_model_pole','iau_rotation_model_pole_librations', 'pole_librations_deg2'],
             'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
             'use_weights': False,
             'use_apriori_cov': False,
         },
         "pole_full_Jacobson": {
             "simulation_path": "Results/EstimatedParametersSimulatedObservations/NewFinal/pole_full_Jacobson",
-            'est_parameters': ['initial_state', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate', 'pole_librations_deg2'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole', 'iau_rotation_model_pole_rate','iau_rotation_model_pole_librations', 'pole_librations_deg2'],
             'Neptune_rot_model_type': 'Pole_Model_Jacobson2009',
             'use_weights': False,
             'use_apriori_cov': False,
@@ -538,7 +562,6 @@ def SimObs_ParameterAnalysis(settings,out_dir,folder_name=""):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     settings['obs']['type'] = 'Simulated'
-    runSim = True
     if runSim == True:
         results = {}
         for name, content in VARIANTS.items():
@@ -549,7 +572,7 @@ def SimObs_ParameterAnalysis(settings,out_dir,folder_name=""):
             out_dir_current = out_dir / name
             out_dir_current.mkdir(parents=True, exist_ok=True)
             
-            settings_est['est_parameters'] = content['est_parameters'] 
+            settings['est']['est_parameters'] = content['est_parameters'] 
             
             #Select different Pole Model or return to default
            
@@ -569,40 +592,49 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
     # WEIGHT SCHEME ANALYSIS
     VARIANTS = {
         "id_new_1_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/id_new_1_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/id_new_1_weights",
             'weight_type': 'id_new_1',
+            'est_parameters': ['initial_state'],
         },
         "id_new_2_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/id_new_2_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/id_new_2_weights",
             'weight_type': 'id_new_2',
+            'est_parameters': ['initial_state'],
         },
         "id_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/id_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/id_weights",
             'weight_type': 'id',
+            'est_parameters': ['initial_state'],
         },
         "tf_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/tf_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/tf_weights",
             'weight_type': 'timeframe',
+            'est_parameters': ['initial_state'],
         },
         "tf_weights_no_limit": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/tf_weights_no_limit",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/tf_weights_no_limit",
             'weight_type': 'timeframe',
+            'est_parameters': ['initial_state'],
         },
         "hybrid_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/hybrid_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_weights",
             'weight_type': 'hybrid',
+            'est_parameters': ['initial_state'],
         },
         "hybrid_old_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/hybrid_old_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_old_weights",
             'weight_type': 'hybrid_old',
+            'est_parameters': ['initial_state'],
         },
         "hybrid_new_id_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/hybrid_new_id_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_new_id_weights",
             'weight_type': 'hybrid_new_id',
+            'est_parameters': ['initial_state'],
         },
         "hybrid_old_new_id_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/hybrid_old_new_id_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_old_new_id_weights",
             'weight_type': 'hybrid_old_new_id',
+            'est_parameters': ['initial_state'],
         },
     }
 
@@ -611,26 +643,57 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
     out_dir = out_dir / "Weight_Scheme_Analysis"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # ---- Load reference simulation: SimPole_pole_lib_cov ----
+    path_ref = "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_lib_cov"
+    sim_ref = PostProc.load_npy_files(path_ref)
 
-    #Create Environment 
-    body_settings,system_of_bodies = PropFuncs.Create_Env(settings['env'])
+    settings['prop']['initial_state'] = sim_ref['parameter_history'][0:6, -1]
+    settings['env']['initial_Pole_lib_deg1'] = sim_ref['parameter_history'][6:, -1]
 
-    #Load observations
-    observations,observations_settings,observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
+    # Pole position from SimPole_pole_pos_cov (initial value, not estimated here)
+    path_pole_pos = "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_pos_cov"
+    sim_pole_pos = PostProc.load_npy_files(path_pole_pos)
+    settings['env']['initial_Pole_Pos'] = sim_pole_pos['parameter_history'][6:8, 0]
+
+    settings['env']['Neptune_rot_model_type'] = 'IAU2015'
+
+    # Only estimate initial state — no pole parameters, no a-priori covariance
+    settings['est']['est_parameters'] = ['initial_state']
+    settings['est']['a_priori_covariance'] = False
+    settings['est']['a_priori_pole'] = False
+    settings['est']['a_priori_lib'] = False
+
+    # ---- Create environment and load observations ----
+    body_settings, system_of_bodies = PropFuncs.Create_Env(settings['env'])
+
+    observations, observations_settings, observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
             settings["obs"]["observations_folder_path"],
             system_of_bodies,
             settings['obs']["files"],
-            Residual_filtering = settings["obs"]["residual_filtering"])
+            Residual_filtering=settings["obs"]["residual_filtering"])
 
-    path_CASE1_weights = "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_initial_state_no_weights"
-    simulation = PostProc.load_npy_files(path_CASE1_weights)
+    # ---- Apply manual bias ----
+    bias_dict = {
+        "689_nm0077": -0.2,  # arcsec
+    }
+    times_sec = observations.get_concatenated_observation_times()
+    residuals_old = observations.get_concatenated_residuals()
 
-    residuals = simulation['residual_history_arcseconds'][-1]
+    observations_biased, applied = ObsFunc.apply_dec_bias_to_observations(
+        observations,
+        observations_settings,
+        system_of_bodies,
+        bias_dict
+    )
 
-    # Convert RA and DEC columns from arcseconds to radians
-    residuals[:, 1] = residuals[:, 1] / (3600 * 180 / np.pi)  # RA
-    residuals[:, 2] = residuals[:, 2] / (3600 * 180 / np.pi)  # DEC
+    residuals_new = observations_biased.get_concatenated_residuals()
+    fig = ObsFunc.PlotResidualBiased(times_sec, residuals_old, residuals_new)
+    fig.savefig(out_dir / "ManualBias_WeightScheme.pdf")
 
+    # ---- Extract residuals from reference simulation for weight computation ----
+    residuals = sim_ref['residual_history_arcseconds'][-1].copy()
+    residuals[:, 1] = residuals[:, 1] / (3600 * 180 / np.pi)  # RA arcsec -> rad
+    residuals[:, 2] = residuals[:, 2] / (3600 * 180 / np.pi)  # DEC arcsec -> rad
 
     settings['obs']["use_loaded_obs"] = True
     tf_weights_clip_threshold_arcseconds = 0.01
@@ -640,7 +703,7 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
             print("######################################")
             print("Running Sim ",name)
             print("######################################")
-            
+
             out_dir_current = out_dir / name
             out_dir_current.mkdir(parents=True, exist_ok=True)
 
@@ -649,11 +712,10 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
             else:
                 tf_weights_clip_threshold_arcseconds = 0.01
 
-            # EXTRACT RESIDUALS FROM INITIAL SIM 
-            # AND COMPUTE/ASSIGN WEIGHTS FROM THEM
-            observations, weights_info = ObsFunc.compute_and_assign_weights(
+            # COMPUTE/ASSIGN WEIGHTS FROM REFERENCE SIMULATION RESIDUALS
+            observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(
                 residuals=residuals,
-                observations=observations,
+                observations=observations_biased,
                 gap_threshold_hours=4.0,
                 min_obs_per_frame=1,
                 weight_type = content['weight_type'],
@@ -664,7 +726,7 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
             estimation_output,_,_,body_settings,system_of_bodies = ObservationImplementation.main(
             settings,
             out_dir_current,
-            observations=observations,
+            observations=observations_weighted,
             observations_settings=observations_settings)
 
 
@@ -679,80 +741,137 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
 
 
 def WeightLoop(settings,out_dir,runSim=True,path_file=""):
-    # WEIGHT SCHEME ANALYSIS
-    VARIANTS = {
-        "id_new_2_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/id_new_2_weights",
-            'weight_type': 'id_new_2',
-        },
-        "tf_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme/tf_weights",
-            'weight_type': 'timeframe',
-        },
-    }
-
-
+    # WEIGHT LOOP: re-estimate 5 times, updating initial state + pole librations + weights each iteration.
+    # Loop 0 = reference simulation (already done), loops 1-5 are new estimations.
 
     out_dir = out_dir / "Weight_Loop"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    path_CASE1_weights = "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_lib_cov"
 
-    #Create Environment 
-    body_settings,system_of_bodies = PropFuncs.Create_Env(settings['env'])
+    _loop_variant_base = {
+        'weight_type': 'id_new_2',
+        'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+        'Neptune_rot_model_type': 'IAU2015',
+        'use_weights': True,
+        'use_apriori_cov': True,
+        'pole_pos_cov': False,
+        'pole_lib_cov': True,
+    }
 
-    #Load observations
-    observations,observations_settings,observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
-            settings["obs"]["observations_folder_path"],
-            system_of_bodies,
-            settings['obs']["files"],
-            Residual_filtering = settings["obs"]["residual_filtering"])
+    VARIANTS = {
+        "loop_0_initial": {
+            "simulation_path": path_CASE1_weights,
+            **_loop_variant_base,
+        },
+    }
+    for i in range(1, 6):
+        VARIANTS[f"loop_{i}"] = {
+            "simulation_path": str("Results/EstimationTemplatesTest/Weight_Loop/" + f"loop_{i}"),
+            **_loop_variant_base,
+        }
 
-    path_CASE1_weights = "Results/PoleEstimationRealObservations/UltimateCASE1/IAUPole_initial_state_no_weights"
-    simulation = PostProc.load_npy_files(path_CASE1_weights)
+    # ---- Configure settings from loop_0 reference simulation ----
+    sim_loop0 = PostProc.load_npy_files(path_CASE1_weights)
 
-    residuals = simulation['residual_history_arcseconds'][-1]
+    # SimPole_pole_lib_cov estimates [initial_state, librations] only — no pole pos in parameter_history
+    settings['prop']['initial_state'] = sim_loop0['parameter_history'][0:6, -1]
+    settings['env']['initial_Pole_lib_deg1'] = sim_loop0['parameter_history'][6:, -1]
 
-    # Convert RA and DEC columns from arcseconds to radians
-    residuals[:, 1] = residuals[:, 1] / (3600 * 180 / np.pi)  # RA
-    residuals[:, 2] = residuals[:, 2] / (3600 * 180 / np.pi)  # DEC
+    # Pole position comes from SimPole_pole_pos_cov — use INITIAL value (column 0), not estimated
+    path_pole_pos = "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_pos_cov"
+    sim_pole_pos = PostProc.load_npy_files(path_pole_pos)
+    settings['env']['initial_Pole_Pos'] = sim_pole_pos['parameter_history'][6:8, 0]
 
+    settings['env']['Neptune_rot_model_type'] = _loop_variant_base['Neptune_rot_model_type']
+    settings['est']['est_parameters'] = _loop_variant_base['est_parameters']
+    settings['est']['a_priori_covariance'] = True
+    settings['est']['a_priori_pole'] = False
+    settings['est']['a_priori_lib'] = True
+    settings['est']['a_priori_lib_deg'] = 1
+
+    # ---- Create environment and load observations (once) ----
+    print("#######################################################################################################")
+    print("ASSIGN MANUAL BIAS AND WEIGHTS")
+    print("#######################################################################################################")
+
+    body_settings, system_of_bodies = PropFuncs.Create_Env(settings['env'])
+    observations, observations_settings, observation_set_ids, epochs_rejected = ObsFunc.LoadObservations(
+        settings["obs"]["observations_folder_path"],
+        system_of_bodies,
+        settings['obs']["files"],
+        Residual_filtering=settings["obs"]["residual_filtering"])
+
+    # Apply manual bias once
+    bias_dict = {
+        "689_nm0077": -0.2,  # arcsec
+    }
+    times_sec = observations.get_concatenated_observation_times()
+    residuals_old = observations.get_concatenated_residuals()
+
+    # Note: observations and observations_biased point to the same memory block
+    observations_biased, applied = ObsFunc.apply_dec_bias_to_observations(
+        observations,
+        observations_settings,
+        system_of_bodies,
+        bias_dict
+    )
+
+    residuals_new = observations_biased.get_concatenated_residuals()
+    fig = ObsFunc.PlotResidualBiased(times_sec, residuals_old, residuals_new)
+    fig.savefig(out_dir / "ManualBias_SimPole.pdf")
+
+    print("#######################################################################################################")
+    print("ASSIGN MANUAL BIAS AND WEIGHTS DONE")
+    print("#######################################################################################################")
 
     settings['obs']["use_loaded_obs"] = True
-    if runSim == True:
-        results = {}
-        for name, content in VARIANTS.items():
+
+    if runSim:
+        for i in range(1, 6):
+            loop_dir = out_dir / f"loop_{i}"
+            loop_dir.mkdir(parents=True, exist_ok=True)
+
             print("######################################")
-            print("Running Sim ",name)
+            print(f"Running WeightLoop iteration {i}/5")
             print("######################################")
-            
-            out_dir_current = out_dir / name
-            out_dir_current.mkdir(parents=True, exist_ok=True)
-            
-            # EXTRACT RESIDUALS FROM INITIAL SIM 
-            # AND COMPUTE/ASSIGN WEIGHTS FROM THEM
-            observations, weights_info = ObsFunc.compute_and_assign_weights(
-                residuals=residuals,
-                observations=observations,
+
+            # Load results from previous iteration
+            prev_path = path_CASE1_weights if i == 1 else str(out_dir / f"loop_{i-1}")
+            prev_sim = PostProc.load_npy_files(prev_path)
+
+            # Update initial state from previous final estimated state
+            settings['prop']['initial_state'] = prev_sim['parameter_history'][0:6, -1]
+
+            # Update only pole librations (pole position is NOT estimated in this loop)
+            settings['env']['initial_Pole_lib_deg1'] = prev_sim['parameter_history'][6:, -1]
+
+            # Extract residuals from previous iteration and convert arcsec -> rad
+            residuals_iter = prev_sim['residual_history_arcseconds'][-1].copy()
+            residuals_iter[:, 1] = residuals_iter[:, 1] / (3600 * 180 / np.pi)  # RA
+            residuals_iter[:, 2] = residuals_iter[:, 2] / (3600 * 180 / np.pi)  # DEC
+
+            # Compute new weights from previous residuals, apply to biased observations
+            observations_loop, weights_info = ObsFunc.compute_and_assign_weights(
+                residuals=residuals_iter,
+                observations=observations_biased,
                 gap_threshold_hours=4.0,
                 min_obs_per_frame=1,
-                weight_type = content['weight_type']
+                weight_type='id_new_2'
             )
-            for i in range(5):
-                #create directory
-                #Run estimation
-                #Add estimation to VARIANTS
-                #Run estimation
-                estimation_output,_,_,body_settings,system_of_bodies = ObservationImplementation.main(
+
+            # Run estimation
+            estimation_output, _, _, body_settings, system_of_bodies = ObservationImplementation.main(
                 settings,
-                out_dir_current,
-                observations=observations,
+                loop_dir,
+                observations=observations_loop,
                 observations_settings=observations_settings)
 
-
-                weights_info.to_csv(out_dir_current / 'observation_weights.csv', index=False)
+            # Save weights for this iteration
+            weights_info.to_csv(loop_dir / 'observation_weights.csv', index=False)
 
     print("######################################")
     print("END SIMULATIONS.")
     print("######################################")
-    
+
     return VARIANTS

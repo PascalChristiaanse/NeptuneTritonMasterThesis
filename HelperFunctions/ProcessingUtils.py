@@ -2,6 +2,7 @@ from tudatpy.astro.time_conversion import DateTime
 from tudatpy.astro import frame_conversion
 from tudatpy import util,math
 import numpy as np
+from scipy import linalg
 
 def format_residual_history_abs_astrometric(residual_history, obs_times):
     residuals_per_iteration = []
