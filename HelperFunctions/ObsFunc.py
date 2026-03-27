@@ -218,10 +218,9 @@ def LoadObservations(
         #Convert to observation collection because can't compute residuals otherwise
         observation_collection_current = estimation.observations.ObservationCollection([observation_single_set_current]) 
 
-        #-----------------------------------------------------------------------------------                   
-        FilterObservations = True
-        if FilterObservations == True and weights is None:
-            #Compute residuals
+        #-----------------------------------------------------------------------------------
+        if weights is None:
+            # Always compute residuals — needed for diagnostics / epochs_rejected tracking
             observation_simulators = observations_setup.observations_simulation_settings.create_observation_simulators(
                     [current_observation_settings],
                     system_of_bodies
@@ -234,78 +233,57 @@ def LoadObservations(
                     )
             residuals = observation_collection_current.get_concatenated_residuals()
 
-
-            #Create filter
             arcsec_to_rad = np.pi / (180.0 * 3600.0)
             upper_bound = 1.5 #arcseconds
-            upper_bound_rad = upper_bound*arcsec_to_rad
+            upper_bound_rad = upper_bound * arcsec_to_rad
 
             outlier_filter = observations_processing.observation_filter(
-                    observations_processing.ObservationFilterType.residual_filtering
-                    ,upper_bound_rad)
-
-
+                    observations_processing.ObservationFilterType.residual_filtering,
+                    upper_bound_rad)
             opposite_outlier_filter = observations_processing.observation_filter(
-                    observations_processing.ObservationFilterType.residual_filtering
-                    ,upper_bound_rad,use_opposite_condition=True)
+                    observations_processing.ObservationFilterType.residual_filtering,
+                    upper_bound_rad, use_opposite_condition=True)
 
-            
-            
-            #Filter single observation set
-            observation_single_set_current_filtered =  estimation.observations.create_filtered_observation_set(observation_single_set_current,outlier_filter)
-            
-            
-            #Print how many observations were filtered if any()
-            rejected_observation_single_set_current =  estimation.observations.create_filtered_observation_set(
-                    observation_single_set_current,
-                    opposite_outlier_filter)
-            #if np.shape(rejected_observation_single_set_current.residuals)[0] > 0:
-            
-            nr_all = np.shape(observation_single_set_current.residuals)[0] # all observations
-            nr_filtered = np.shape(observation_single_set_current_filtered.residuals)[0] # filtered observations
-            nr_rejected = np.shape(rejected_observation_single_set_current.residuals)[0] # rejected observations
-            
-            print("====================")
-            print("FOR SET ID: ", set_id)
-            print("all: ",nr_all)
-            print("filtered: ",nr_filtered)
-            print("rejected: ",nr_rejected)
-            print("====================")
+            rejected_observation_single_set_current = estimation.observations.create_filtered_observation_set(
+                    observation_single_set_current, opposite_outlier_filter)
 
-            #Compute rejected epochs
+            nr_all     = np.shape(observation_single_set_current.residuals)[0]
+            nr_rejected = np.shape(rejected_observation_single_set_current.residuals)[0]
+
+            #Compute rejected epochs (always tracked, regardless of which filters are applied)
             epochs_all = observation_single_set_current.observation_times
-            epochs_filtered = observation_single_set_current_filtered.observation_times
+            residual_filtered_set = estimation.observations.create_filtered_observation_set(
+                    observation_single_set_current, outlier_filter)
+            epochs_filtered = residual_filtered_set.observation_times
             epochs_rejected_current = [t for t in epochs_all if t not in epochs_filtered]
-
             epochs_rejected[set_id] = [t.to_float() for t in epochs_rejected_current]
 
-            #" is ", np.shape(rejected_observation_single_set_current.residuals))
-            
+            print("====================")
+            print("FOR SET ID: ", set_id)
+            print("all: ", nr_all)
+            print("rejected by residual filter: ", nr_rejected)
+            print("====================")
 
+            # --- Start from unfiltered, apply each filter independently ---
+            observation_single_set_current_filtered = observation_single_set_current
 
+            # 1. Residual filter (independent)
+            if Residual_filtering:
+                observation_single_set_current_filtered = estimation.observations.create_filtered_observation_set(
+                        observation_single_set_current_filtered, outlier_filter)
 
-
-            #-----------------------------------------------------------------------------------   
-            # Create a time based filter 
-            if Residual_filtering == False:
+            # 2. Epoch filter (independent)
+            if epoch_filter_dict is not None and set_id in epoch_filter_dict:
                 if np.shape(epoch_filter_dict[set_id])[0] != 0:
                     epoch_filter = observations_processing.observation_filter(
-                        observations_processing.ObservationFilterType.epochs_filtering
-                            ,epoch_filter_dict[set_id])
+                            observations_processing.ObservationFilterType.epochs_filtering,
+                            epoch_filter_dict[set_id])
+                    observation_single_set_current_filtered = estimation.observations.create_filtered_observation_set(
+                            observation_single_set_current_filtered, epoch_filter)
 
-                    observation_single_set_current_filtered =  estimation.observations.create_filtered_observation_set(
-                        observation_single_set_current,epoch_filter)
-                else:
-                    observation_single_set_current_filtered = observation_single_set_current
-
-            #-----------------------------------------------------------------------------------   
-
-
-
-
-        #-----------------------------------------------------------------------------------    
+        #-----------------------------------------------------------------------------------
         # Append to list
-        if FilterObservations == True and weights is None:
+        if weights is None:
             observation_set_list.append(observation_single_set_current_filtered)
         else:
             observation_set_list.append(observation_single_set_current)

@@ -342,14 +342,15 @@ def build_residual_df(simulations, sim_name):
 # ║  Add/remove entries as needed. Each tuple: (label, file_path)   ║
 # ╚══════════════════════════════════════════════════════════════════╝
 DATA_FILES = [
-    #('SimObs', 'Results/EstimatedParametersSimulatedObservations/NewFinal/Analysis/simulations.pkl'),
+    ('SimObs', 'Results/EstimatedParametersSimulatedObservations/NewFinal/Analysis/simulations.pkl'),
     #('WeightAnalysis_Old', 'Results/EstimationTemplatesTest/WeightScheme/Analysis/simulations.pkl'),
     #('WeightAnalysis', 'Results/EstimationTemplatesTest/WeightScheme_New/Analysis/simulations.pkl'),
+    #('WeightAnalysis_Pole', 'Results/EstimationTemplatesTest/WeightScheme_Pole_lib/Analysis/simulations.pkl'),
     #('UltimateCASE1', 'Results/PoleEstimationRealObservations/UltimateCASE1/Analysis/simulations_with_weights.pkl'),
     #('PoleEst_MB_old', 'Results/ManualBias/CASE1_Manual_Bias/Analysis/simulations.pkl'),
-    #('PoleEst_MB', 'Results/EstimationTemplatesTest/CASE1_Manual_Bias/Analysis/simulations.pkl'),
+    ('PoleEst_MB', 'Results/EstimationTemplatesTest/CASE1_Manual_Bias/Analysis/simulations.pkl'),
     # ('PoleInitCASE2', 'Results/PoleEstimationRealObservations/PoleInitCASE2/Analysis/simulations_with_weights.pkl'),
-    ('WeightLoop', 'Results/EstimationTemplatesTest/Weight_Loop/Analysis/simulations.pkl'),
+    #('WeightLoop', 'Results/EstimationTemplatesTest/Weight_Loop/Analysis/simulations.pkl'),
 ]
 
 all_datasets = {}

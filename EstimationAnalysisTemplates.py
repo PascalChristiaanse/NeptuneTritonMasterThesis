@@ -591,50 +591,83 @@ def SimObs_ParameterAnalysis(settings,out_dir,folder_name="",runSim=True):
 def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
     # WEIGHT SCHEME ANALYSIS
     VARIANTS = {
+        "ref_SimPole_pole_lib_cov": {
+            "simulation_path": "Results/EstimationTemplatesTest/CASE1_Manual_Bias/SimPole_pole_lib_cov",
+            'weight_type': 'id_new_2',
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
+            'run': False,
+        },
         "id_new_1_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/id_new_1_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/id_new_1_weights",
             'weight_type': 'id_new_1',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
         "id_new_2_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/id_new_2_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/id_new_2_weights",
             'weight_type': 'id_new_2',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
+        },
+        "id_new_2_weights_no_cov": {
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/id_new_2_weights_no_cov",
+            'weight_type': 'id_new_2',
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': False,
+            'pole_lib_cov': False,
         },
         "id_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/id_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/id_weights",
             'weight_type': 'id',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
         "tf_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/tf_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/tf_weights",
             'weight_type': 'timeframe',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
         "tf_weights_no_limit": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/tf_weights_no_limit",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/tf_weights_no_limit",
             'weight_type': 'timeframe',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
         "hybrid_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/hybrid_weights",
             'weight_type': 'hybrid',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
         "hybrid_old_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_old_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/hybrid_old_weights",
             'weight_type': 'hybrid_old',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
         "hybrid_new_id_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_new_id_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/hybrid_new_id_weights",
             'weight_type': 'hybrid_new_id',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
         "hybrid_old_new_id_weights": {
-            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_New/hybrid_old_new_id_weights",
+            "simulation_path": "Results/EstimationTemplatesTest/WeightScheme_Pole_lib/hybrid_old_new_id_weights",
             'weight_type': 'hybrid_old_new_id',
-            'est_parameters': ['initial_state'],
+            'est_parameters': ['initial_state', 'iau_rotation_model_pole_librations'],
+            'use_apriori_cov': True,
+            'pole_lib_cov': True,
         },
     }
 
@@ -657,11 +690,8 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
 
     settings['env']['Neptune_rot_model_type'] = 'IAU2015'
 
-    # Only estimate initial state — no pole parameters, no a-priori covariance
-    settings['est']['est_parameters'] = ['initial_state']
-    settings['est']['a_priori_covariance'] = False
+    # Common settings — per-variant overrides applied in the loop below
     settings['est']['a_priori_pole'] = False
-    settings['est']['a_priori_lib'] = False
 
     # ---- Create environment and load observations ----
     body_settings, system_of_bodies = PropFuncs.Create_Env(settings['env'])
@@ -700,6 +730,10 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
     if runSim == True:
         results = {}
         for name, content in VARIANTS.items():
+            if not content.get('run', True):
+                print(f"Skipping {name} (reference sim, not run)")
+                continue
+
             print("######################################")
             print("Running Sim ",name)
             print("######################################")
@@ -711,6 +745,13 @@ def WeightSchemeAnalysis(settings,out_dir,runSim=True,path_file=""):
                 tf_weights_clip_threshold_arcseconds = 0.0
             else:
                 tf_weights_clip_threshold_arcseconds = 0.01
+
+            # Apply per-variant estimation settings
+            settings['est']['est_parameters'] = content['est_parameters']
+            settings['est']['a_priori_covariance'] = content.get('use_apriori_cov', True)
+            settings['est']['a_priori_lib'] = content.get('pole_lib_cov', True)
+            if content.get('pole_lib_cov', False):
+                settings['est']['a_priori_lib_deg'] = 1
 
             # COMPUTE/ASSIGN WEIGHTS FROM REFERENCE SIMULATION RESIDUALS
             observations_weighted, weights_info = ObsFunc.compute_and_assign_weights(

@@ -248,10 +248,10 @@ out_dir = make_timestamped_folder("Results/EstimationTemplatesTest")
 
 #VARIANTS = EstimationTemplates.SimObs_ParameterAnalysis(settings,out_dir,runSim=False)
 
-#VARIANTS = EstimationTemplates.CASE1_Manual_Bias(settings,out_dir,runSim=False)
+VARIANTS = EstimationTemplates.CASE1_Manual_Bias(settings,out_dir,runSim=True)
 
 
-VARIANTS = EstimationTemplates.WeightSchemeAnalysis(settings,out_dir,runSim=False)
+#VARIANTS = EstimationTemplates.WeightSchemeAnalysis(settings,out_dir,runSim=False)
 
 #VARIANTS = EstimationTemplates.WeightLoop(settings,out_dir,runSim=False)#,path_file="")
 
