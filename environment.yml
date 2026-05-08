@@ -1,0 +1,27 @@
+name: neptuneAtanas
+
+channels:
+  - conda-forge
+  - defaults
+  - tudat-team
+dependencies:
+  - python=3.10
+  - tudatpy
+  - pip
+  - matplotlib=3.9.2
+  - notebook
+  - scipy
+  - plotly
+  - dash
+  - pyyaml
+  - pandas
+  - astropy
+  - tqdm      
+  - astropy-healpix  
+  - spiceypy # for automatic data downloader and kernel converter
+  - tabulate
+  - colorama
+  - numpy<2.0.0
+  - pip:
+    - astroquery>=0.4.8.dev9306
+    - git+https://github.com/NASA-PDS/PyTrk234.git
